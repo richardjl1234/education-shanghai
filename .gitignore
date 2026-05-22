@@ -1,0 +1,21 @@
+# Claude Code
+.claude/
+.marscode/
+
+# Temporary files
+tmp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.idea/
+*.sublime-*
+
+# Private files
+plan.txt
