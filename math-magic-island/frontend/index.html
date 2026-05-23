@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=1920, initial-scale=1.0">
+<title>数学魔法岛</title>
+<link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+
+<!-- 全屏游戏画布 -->
+<canvas id="game-canvas"></canvas>
+
+<!-- HUD 覆盖层 -->
+<div id="hud">
+  <div id="hud-left">
+    <span id="crystal-count">💎 0</span>
+    <span id="streak-days">🔥 0天</span>
+  </div>
+  <div id="hud-right">
+    <span id="zone-name">🏠 蘑菇屋</span>
+    <span id="friendship-badge">🤝 好朋友</span>
+  </div>
+</div>
+
+<!-- 嘟嘟对话区 -->
+<div id="dialogue-container">
+  <div id="dudu-avatar">
+    <div id="dudu-sprite">🐹</div>
+    <div id="dudu-name">嘟嘟</div>
+    <div id="dudu-mood">😊</div>
+  </div>
+  <div id="dialogue-bubble">
+    <p id="dialogue-text">加载中...</p>
+  </div>
+  <div id="dialogue-hint">按 A 键继续</div>
+</div>
+
+<!-- 水晶奖励动画（答对时飘出） -->
+<div id="crystal-award" class="hidden">
+  <div id="crystal-particle">💎</div>
+  <div id="crystal-text">+1 💎</div>
+</div>
+
+<!-- 答题界面（隐藏） -->
+<div id="challenge-panel" class="hidden">
+  <div id="challenge-topic"></div>
+  <div id="challenge-question"></div>
+  <div id="challenge-options"></div>
+  <div id="challenge-feedback"></div>
+</div>
+
+<!-- 蘑菇屋装饰面板 -->
+<div id="house-panel" class="hidden fullscreen-panel">
+  <div class="panel-title">🏠 嘟嘟的蘑菇屋</div>
+  <div id="house-preview">
+    <div class="house-room">
+      <div id="house-decor-display">🏠</div>
+      <p>已装饰: <span id="house-decor-count">0</span> 件</p>
+    </div>
+    <div class="house-dudu">
+      <div id="house-dudu-sprite">🐹</div>
+      <p id="house-dudu-acc">装扮: 无</p>
+    </div>
+  </div>
+  <div class="house-actions">
+    <button class="big-btn" onclick="openShop()">🛒 装饰商店</button>
+    <button class="big-btn secondary" onclick="closeHouse()">↩ 返回探索</button>
+  </div>
+</div>
+
+<!-- 商店面板 -->
+<div id="shop-panel" class="hidden fullscreen-panel">
+  <div class="panel-title">🛒 装饰商店 <span id="shop-balance"></span></div>
+  <div id="shop-grid"></div>
+  <div class="house-actions">
+    <button class="big-btn secondary" onclick="closeShop()">↩ 回蘑菇屋</button>
+  </div>
+</div>
+
+<!-- 家长报告面板 -->
+<div id="report-panel" class="hidden fullscreen-panel">
+  <div class="panel-title">📊 学习报告</div>
+  <div id="report-content">
+    <div class="report-stats" id="report-summary"></div>
+    <div class="report-section">
+      <h3>📈 知识点能力分布</h3>
+      <div id="report-topics"></div>
+    </div>
+    <div class="report-section">
+      <h3>⚠️ 薄弱环节</h3>
+      <div id="report-weak"></div>
+    </div>
+    <div class="report-section">
+      <h3>📅 最近7天正确题数</h3>
+      <div id="report-chart"></div>
+    </div>
+  </div>
+  <div class="house-actions">
+    <button class="big-btn secondary" onclick="closeReport()">↩ 关闭</button>
+  </div>
+</div>
+
+<!-- 手柄状态指示 -->
+<div id="gamepad-indicator">🎮 手柄已连接</div>
+
+<!-- 加载/过渡层 -->
+<div id="loading-overlay">
+  <div id="loading-text">🌟 数学魔法岛 🌟</div>
+  <div id="loading-sub">正在唤醒嘟嘟...</div>
+</div>
+
+<!-- 开始提示（按任意键开始，确保音频可播放） -->
+<div id="start-hint" class="hidden">
+  <div id="start-hint-text">按 A 键或 空格 开始</div>
+</div>
+
+<script src="/js/gamepad.js"></script>
+<script src="/js/dialogue-ui.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

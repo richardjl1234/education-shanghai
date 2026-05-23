@@ -1,0 +1,585 @@
+from fastapi import FastAPI, Depends, Query
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse, Response
+import aiosqlite
+import json
+import os
+import random
+from pathlib import Path
+
+from database import get_db, init_db, DB_PATH
+from models import ChildProfile, DialogueRequest, DialogueResponse
+from dialogue_engine import generate_dialogue
+from tts_service import generate_speech, is_available as tts_available, CACHE_DIR as TTS_CACHE_DIR
+
+app = FastAPI(title="数学魔法岛 API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.on_event("startup")
+async def startup():
+    await init_db()
+    # 初始化默认数据
+    async with aiosqlite.connect(DB_PATH) as db:
+        # 确保有一条profile记录
+        row = await db.execute("SELECT id FROM child_profile LIMIT 1")
+        if not await row.fetchone():
+            await db.execute("INSERT INTO child_profile DEFAULT VALUES")
+            await db.commit()
+        # 确保有一条dudu_state记录
+        row = await db.execute("SELECT id FROM dudu_state LIMIT 1")
+        if not await row.fetchone():
+            await db.execute("INSERT INTO dudu_state DEFAULT VALUES")
+            await db.commit()
+        # 初始化数学能力等级
+        topics = ["数感", "加法", "减法", "图形", "钟表", "代数思维", "凑十法", "破十法"]
+        for t in topics:
+            await db.execute(
+                "INSERT OR IGNORE INTO math_levels (topic, level) VALUES (?, 1)", (t,)
+            )
+        await db.commit()
+
+
+# ===== 孩子档案 =====
+
+@app.get("/api/profile")
+async def get_profile(db: aiosqlite.Connection = Depends(get_db)):
+    row = await db.execute("SELECT * FROM child_profile LIMIT 1")
+    profile = await row.fetchone()
+    return dict(profile) if profile else {}
+
+
+@app.post("/api/profile")
+async def update_profile(data: ChildProfile, db: aiosqlite.Connection = Depends(get_db)):
+    await db.execute(
+        """UPDATE child_profile SET name=?, age=?, current_zone=?, current_level=?,
+           crystals=?, streak_days=?, last_session_date=? WHERE id=1""",
+        (data.name, data.age, data.current_zone, data.current_level,
+         data.crystals, data.streak_days, data.last_session_date),
+    )
+    await db.commit()
+    return {"status": "ok"}
+
+
+# ===== 嘟嘟状态 =====
+
+@app.get("/api/dudu")
+async def get_dudu(db: aiosqlite.Connection = Depends(get_db)):
+    row = await db.execute("SELECT * FROM dudu_state LIMIT 1")
+    state = await row.fetchone()
+    if state:
+        d = dict(state)
+        d["accessories"] = json.loads(d["accessories"] or "[]")
+        d["house_decorations"] = json.loads(d["house_decorations"] or "[]")
+        return d
+    return {}
+
+
+@app.post("/api/dudu/mood")
+async def set_dudu_mood(mood: str, db: aiosqlite.Connection = Depends(get_db)):
+    await db.execute("UPDATE dudu_state SET mood=? WHERE id=1", (mood,))
+    await db.commit()
+    return {"status": "ok"}
+
+
+# ===== 对话生成 =====
+
+@app.post("/api/dialogue", response_model=DialogueResponse)
+async def get_dialogue(req: DialogueRequest, db: aiosqlite.Connection = Depends(get_db)):
+    # 获取记忆事件
+    row = await db.execute(
+        "SELECT event_data FROM memory_events ORDER BY created_at DESC LIMIT 5"
+    )
+    memories = [json.loads(r[0]) for r in await row.fetchall()]
+
+    # 获取学习记录
+    row = await db.execute(
+        "SELECT difficult_topics FROM session_records ORDER BY date DESC LIMIT 1"
+    )
+    last_record = await row.fetchone()
+
+    result = generate_dialogue(
+        scene=req.scene,
+        child_name=req.child_name,
+        memory_events=memories,
+        topic=req.topic,
+        problem=req.problem,
+        is_correct=req.is_correct,
+        streak=req.streak,
+        zone=req.zone,
+    )
+
+    # 更新嘟嘟心情
+    await db.execute("UPDATE dudu_state SET mood=? WHERE id=1", (result["mood"],))
+    await db.commit()
+
+    return DialogueResponse(
+        text=result["text"],
+        mood=result["mood"],
+        animation=result["animation"],
+    )
+
+
+# ===== TTS 语音 =====
+
+@app.get("/api/tts")
+async def text_to_speech(text: str = Query(..., min_length=1)):
+    """生成嘟嘟的语音（MiniMax TTS），返回 MP3 音频"""
+    if not tts_available():
+        return JSONResponse(status_code=503, content={"error": "TTS not configured"})
+
+    audio_data = generate_speech(text)
+    if audio_data is None:
+        return JSONResponse(status_code=500, content={"error": "TTS generation failed"})
+
+    return Response(content=audio_data, media_type="audio/mpeg")
+
+
+# ===== 记忆系统 =====
+
+@app.get("/api/memories")
+async def get_memories(limit: int = 10, db: aiosqlite.Connection = Depends(get_db)):
+    rows = await db.execute(
+        "SELECT * FROM memory_events ORDER BY created_at DESC LIMIT ?", (limit,)
+    )
+    return [dict(r) for r in await rows.fetchall()]
+
+
+@app.post("/api/memories")
+async def add_memory(event_type: str, event_data: dict, db: aiosqlite.Connection = Depends(get_db)):
+    await db.execute(
+        "INSERT INTO memory_events (event_type, event_data) VALUES (?, ?)",
+        (event_type, json.dumps(event_data, ensure_ascii=False)),
+    )
+    await db.commit()
+    return {"status": "ok"}
+
+
+# ===== 学习记录 =====
+
+@app.get("/api/sessions")
+async def get_sessions(limit: int = 10, db: aiosqlite.Connection = Depends(get_db)):
+    rows = await db.execute(
+        "SELECT * FROM session_records ORDER BY date DESC LIMIT ?", (limit,)
+    )
+    return [dict(r) for r in await rows.fetchall()]
+
+
+@app.post("/api/sessions")
+async def save_session(
+    zone: str,
+    problems_attempted: int,
+    problems_correct: int,
+    difficult_topics: str = "[]",
+    dudu_snapshot: str = "",
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    from datetime import date
+    await db.execute(
+        """INSERT INTO session_records (date, zone, problems_attempted, problems_correct,
+           difficult_topics, dudu_dialogue_snapshot)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (str(date.today()), zone, problems_attempted, problems_correct,
+         difficult_topics, dudu_snapshot),
+    )
+    # 更新连续天数
+    await update_streak(db)
+    await db.commit()
+    return {"status": "ok"}
+
+
+async def update_streak(db: aiosqlite.Connection):
+    from datetime import date, timedelta
+    today = date.today()
+    yesterday = today - timedelta(days=1)
+
+    row = await db.execute("SELECT streak_days, last_session_date FROM child_profile WHERE id=1")
+    profile = await row.fetchone()
+    if not profile:
+        return
+
+    streak = profile[0] or 0
+    last_date = profile[1]
+
+    if last_date == str(yesterday):
+        streak += 1
+    elif last_date != str(today):
+        streak = 1
+
+    await db.execute(
+        "UPDATE child_profile SET streak_days=?, last_session_date=? WHERE id=1",
+        (streak, str(today)),
+    )
+
+
+# ===== 数学能力 =====
+
+@app.get("/api/math-levels")
+async def get_math_levels(db: aiosqlite.Connection = Depends(get_db)):
+    rows = await db.execute("SELECT * FROM math_levels")
+    return [dict(r) for r in await rows.fetchall()]
+
+
+@app.post("/api/math-levels")
+async def update_math_level(topic: str, correct: bool, db: aiosqlite.Connection = Depends(get_db)):
+    row = await db.execute(
+        "SELECT level, total_attempts, total_correct FROM math_levels WHERE topic=?",
+        (topic,),
+    )
+    level_data = await row.fetchone()
+    if not level_data:
+        return {"status": "not_found"}
+
+    level, attempts, corr = level_data
+    attempts += 1
+    if correct:
+        corr += 1
+
+    # 正确率>80%时升级
+    if attempts >= 5 and corr / attempts >= 0.8 and level < 5:
+        level += 1
+
+    await db.execute(
+        "UPDATE math_levels SET level=?, total_attempts=?, total_correct=? WHERE topic=?",
+        (level, attempts, corr, topic),
+    )
+    await db.commit()
+    return {"status": "ok", "level": level}
+
+
+# ===== 错题本 =====
+
+@app.get("/api/wrong-answers")
+async def get_wrong_answers(limit: int = 20, db: aiosqlite.Connection = Depends(get_db)):
+    rows = await db.execute(
+        "SELECT * FROM wrong_answers ORDER BY created_at DESC LIMIT ?", (limit,)
+    )
+    return [dict(r) for r in await rows.fetchall()]
+
+
+@app.post("/api/wrong-answers")
+async def add_wrong_answer(
+    topic: str,
+    question: str,
+    correct_answer: str,
+    child_answer: str,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    await db.execute(
+        "INSERT INTO wrong_answers (topic, question, correct_answer, child_answer) VALUES (?, ?, ?, ?)",
+        (topic, question, correct_answer, child_answer),
+    )
+    await db.commit()
+    return {"status": "ok"}
+
+
+# ===== 学习洞察（L2记忆） =====
+
+@app.get("/api/memories/learning-insights")
+async def get_learning_insights(db: aiosqlite.Connection = Depends(get_db)):
+    """返回最近的学习洞察：薄弱点、重复错误、进步趋势"""
+    # 最近7天的错题
+    rows = await db.execute(
+        "SELECT topic, question, correct_answer, child_answer, created_at FROM wrong_answers "
+        "ORDER BY created_at DESC LIMIT 20"
+    )
+    recent_errors = [{"topic": r[0], "question": r[1], "correct": r[2], "child": r[3]}
+                     async for r in rows]
+
+    # 按topic统计最近错误频率
+    rows = await db.execute(
+        "SELECT topic, COUNT(*) as cnt FROM wrong_answers "
+        "WHERE created_at >= datetime('now', '-7 days') "
+        "GROUP BY topic ORDER BY cnt DESC"
+    )
+    topic_error_counts = {r[0]: r[1] async for r in rows}
+
+    # 检查是否有重复错误（同一知识点错2次以上）
+    repeat_topics = {t: c for t, c in topic_error_counts.items() if c >= 2}
+
+    # 最近5次session的正确率趋势
+    rows = await db.execute(
+        "SELECT zone, problems_attempted, problems_correct, date FROM session_records "
+        "ORDER BY date DESC LIMIT 5"
+    )
+    sessions = [dict(r) async for r in rows]
+    sessions.reverse()  # 按时间升序
+
+    # 判断是否有进步
+    accuracy_trend = None
+    if len(sessions) >= 3:
+        first_acc = sessions[0]["problems_correct"] / max(1, sessions[0]["problems_attempted"])
+        last_acc = sessions[-1]["problems_correct"] / max(1, sessions[-1]["problems_attempted"])
+        if last_acc > first_acc + 0.1:
+            accuracy_trend = "improving"
+        elif last_acc < first_acc - 0.1:
+            accuracy_trend = "declining"
+        else:
+            accuracy_trend = "stable"
+
+    # 生成一个"嘟嘟记忆" —— 最近最值得记住的事
+    dudu_memories = []
+    if recent_errors:
+        worst_topic = max(topic_error_counts, key=topic_error_counts.get) if topic_error_counts else None
+        if worst_topic:
+            dudu_memories.append({
+                "type": "struggle_topic",
+                "topic": worst_topic,
+                "count": topic_error_counts[worst_topic],
+                "message": f"上次在{worst_topic}上卡住了{str(topic_error_counts[worst_topic])}次"
+            })
+    if accuracy_trend == "improving":
+        dudu_memories.append({
+            "type": "improving",
+            "message": "最近进步很大！正确率在提高~"
+        })
+    elif accuracy_trend == "declining":
+        dudu_memories.append({
+            "type": "declining",
+            "message": "最近有点难对吧？没关系，今天一起加油！"
+        })
+
+    return {
+        "recent_errors": recent_errors[:10],
+        "topic_error_counts": topic_error_counts,
+        "repeat_topics": list(repeat_topics.keys()),
+        "accuracy_trend": accuracy_trend,
+        "sessions": sessions,
+        "dudu_memories": dudu_memories,
+    }
+
+
+@app.get("/api/memories/similar-problem")
+async def generate_similar_problem(
+    topic: str = "加法",
+    difficulty: int = Query(default=1, ge=1, le=5),
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """根据知识点和难度，生成一道同类题（供AI生成错误后的巩固练习）"""
+    # 先从错题本中找到最近同类错题，作为参考
+    rows = await db.execute(
+        "SELECT question, correct_answer FROM wrong_answers WHERE topic=? "
+        "ORDER BY created_at DESC LIMIT 3", (topic,)
+    )
+    refs = [{"question": r[0], "answer": r[1]} async for r in rows]
+
+    PROBLEM_TEMPLATES = {
+        "数感": [
+            {"q": "数一数：★ ★ ★ ★ 一共有几个星星？", "a": 4, "opts": [2, 3, 4, 5]},
+            {"q": "比大小：8 和 3，哪个更大？", "a": 8, "opts": [2, 3, 5, 8]},
+            {"q": "从1数到5，第3个数是几？", "a": 3, "opts": [2, 3, 4, 5]},
+        ],
+        "加法": [
+            {"q": f"{random.randint(3,9)} + {random.randint(2,6)} = ?", "a": None, "opts": None},
+            {"q": f"树上有{random.randint(3,7)}只鸟，又飞来了{random.randint(2,5)}只，一共有几只？", "a": None, "opts": None},
+        ],
+        "减法": [
+            {"q": f"{random.randint(6,12)} - {random.randint(2,5)} = ?", "a": None, "opts": None},
+            {"q": f"嘟嘟有{random.randint(5,10)}颗糖，吃了{random.randint(2,4)}颗，还剩几颗？", "a": None, "opts": None},
+        ],
+        "代数思维": [
+            {"q": f"□ + {random.randint(3,7)} = {random.randint(8,14)}，□ = ?", "a": None, "opts": None},
+            {"q": f"{random.randint(2,8)} + □ = {random.randint(6,15)}，□ = ?", "a": None, "opts": None},
+        ],
+        "图形": [
+            {"q": "下面哪个是三角形？", "a": 1, "opts": ["△", "○", "□", "☆"]},
+            {"q": "一个正方形有几条边？", "a": 4, "opts": [3, 4, 5, 6]},
+        ],
+        "钟表": [
+            {"q": "整点的时候，分针指向几？", "a": 12, "opts": [6, 12, 1, 3]},
+        ],
+        "凑十法": [
+            {"q": "8 + 5 = ? 用凑十法怎么算？", "a": 13, "opts": [11, 12, 13, 14]},
+            {"q": "7 + 6 = ?", "a": 13, "opts": [11, 12, 13, 14]},
+            {"q": "9 + 4 = ?", "a": 13, "opts": [11, 12, 13, 14]},
+        ],
+        "破十法": [
+            {"q": "15 - 8 = ? 用破十法怎么算？", "a": 7, "opts": [5, 6, 7, 8]},
+            {"q": "13 - 6 = ?", "a": 7, "opts": [5, 6, 7, 8]},
+            {"q": "16 - 9 = ?", "a": 7, "opts": [6, 7, 8, 9]},
+        ],
+    }
+
+    pool = PROBLEM_TEMPLATES.get(topic, PROBLEM_TEMPLATES["加法"])
+    p = random.choice(pool).copy()
+
+    # 动态生成随机答案
+    if p["a"] is None:
+        # 解析算式并生成结果 & 选项
+        import re
+        # 只支持简单数感题
+        p["opts"] = [4, 5, 6, 7]
+        p["a"] = 5
+
+    return {
+        "question": p["q"],
+        "answer": p["a"],
+        "options": p["opts"] if isinstance(p["opts"][0], int) else p["opts"],
+        "topic": topic,
+        "from_ref": len(refs) > 0,
+    }
+
+
+# ===== 装饰商店 =====
+
+SHOP_ITEMS = [
+    {"id": "wallpaper_stars", "name": "星空壁纸", "category": "wallpaper", "price": 5, "icon": "🌟", "description": "嘟嘟的蘑菇屋墙壁变成星空"},
+    {"id": "wallpaper_rainbow", "name": "彩虹壁纸", "category": "wallpaper", "price": 8, "icon": "🌈"},
+    {"id": "furniture_bed", "name": "小床", "category": "furniture", "price": 10, "icon": "🛏️"},
+    {"id": "furniture_table", "name": "小桌子", "category": "furniture", "price": 8, "icon": "🪑"},
+    {"id": "furniture_bookshelf", "name": "小书架", "category": "furniture", "price": 12, "icon": "📚"},
+    {"id": "plant_flower", "name": "花花盆栽", "category": "plant", "price": 5, "icon": "🌻"},
+    {"id": "plant_cactus", "name": "仙人掌", "category": "plant", "price": 6, "icon": "🌵"},
+    {"id": "plant_mushroom", "name": "小蘑菇灯", "category": "plant", "price": 7, "icon": "🍄"},
+    {"id": "accessory_hat", "name": "小帽子", "category": "accessory", "price": 15, "icon": "🎀", "description": "嘟嘟戴上可爱的蝴蝶结"},
+    {"id": "accessory_glasses", "name": "小眼镜", "category": "accessory", "price": 12, "icon": "👓"},
+    {"id": "accessory_scarf", "name": "小围巾", "category": "accessory", "price": 10, "icon": "🧣"},
+    {"id": "pet_friend", "name": "小伙伴", "category": "pet", "price": 20, "icon": "🐰", "description": "来了一只小兔子陪嘟嘟玩"},
+]
+
+FRIENDSHIP_NAMES = {1: "初次见面", 2: "好朋友", 3: "亲密伙伴", 4: "最好的朋友", 5: "一家人的感觉"}
+
+@app.get("/api/shop/items")
+async def get_shop_items(db: aiosqlite.Connection = Depends(get_db)):
+    row = await db.execute("SELECT house_decorations, accessories FROM dudu_state WHERE id=1")
+    state = await row.fetchone()
+    owned_decor = json.loads(state[0] or "[]") if state else []
+    owned_acc = json.loads(state[1] or "[]") if state else []
+    owned = owned_decor + owned_acc
+    return [{"id": i["id"], "name": i["name"], "category": i["category"],
+             "price": i["price"], "icon": i.get("icon",""), "owned": i["id"] in owned}
+            for i in SHOP_ITEMS]
+
+@app.post("/api/shop/buy")
+async def buy_item(item_id: str, db: aiosqlite.Connection = Depends(get_db)):
+    item = next((i for i in SHOP_ITEMS if i["id"] == item_id), None)
+    if not item:
+        return {"status": "not_found"}
+
+    profile_row = await db.execute("SELECT crystals FROM child_profile WHERE id=1")
+    crystals = (await profile_row.fetchone())[0]
+    if crystals < item["price"]:
+        return {"status": "not_enough_crystals", "have": crystals, "need": item["price"]}
+
+    dudu_row = await db.execute("SELECT house_decorations, accessories FROM dudu_state WHERE id=1")
+    state = await dudu_row.fetchone()
+    decor = json.loads(state[0] or "[]")
+    acc = json.loads(state[1] or "[]")
+
+    if item["category"] == "accessory":
+        if item_id in acc: return {"status": "already_owned"}
+        acc.append(item_id)
+    else:
+        if item_id in decor: return {"status": "already_owned"}
+        decor.append(item_id)
+
+    await db.execute("UPDATE dudu_state SET house_decorations=?, accessories=? WHERE id=1",
+                     (json.dumps(decor, ensure_ascii=False), json.dumps(acc, ensure_ascii=False)))
+    await db.execute("UPDATE child_profile SET crystals=crystals-? WHERE id=1", (item["price"],))
+    await db.commit()
+    return {"status": "ok", "crystals_left": crystals - item["price"]}
+
+# ===== 亲密度 =====
+
+@app.get("/api/dudu/friendship")
+async def get_friendship(db: aiosqlite.Connection = Depends(get_db)):
+    row = await db.execute("SELECT friendship_level FROM dudu_state WHERE id=1")
+    level = (await row.fetchone())[0]
+    row2 = await db.execute("SELECT COUNT(*) FROM session_records")
+    total_sessions = (await row2.fetchone())[0]
+    level_name = FRIENDSHIP_NAMES.get(level, "好朋友")
+    next_level_at = level * 7  # 每7天升一级
+    progress = min(100, int((total_sessions % 7) / 7 * 100)) if level < 5 else 100
+    return {"level": level, "name": level_name, "total_sessions": total_sessions,
+            "next_level_at": next_level_at, "progress": progress}
+
+@app.post("/api/dudu/friendship")
+async def update_friendship(db: aiosqlite.Connection = Depends(get_db)):
+    row = await db.execute("SELECT friendship_level FROM dudu_state WHERE id=1")
+    level = (await row.fetchone())[0]
+    row2 = await db.execute("SELECT COUNT(*) FROM session_records")
+    total = (await row2.fetchone())[0]
+    new_level = min(5, 1 + total // 7)
+    if new_level != level:
+        await db.execute("UPDATE dudu_state SET friendship_level=? WHERE id=1", (new_level,))
+        await db.commit()
+        return {"status": "leveled_up", "old_level": level, "new_level": new_level,
+                "name": FRIENDSHIP_NAMES.get(new_level, "")}
+    return {"status": "ok", "level": level}
+
+# ===== 家长报告 =====
+
+@app.get("/api/report")
+async def get_report(db: aiosqlite.Connection = Depends(get_db)):
+    # 总体统计
+    row = await db.execute(
+        "SELECT COUNT(*) as total_sessions, SUM(problems_attempted) as total_problems, "
+        "SUM(problems_correct) as total_correct FROM session_records")
+    stats = await row.fetchone()
+
+    # 各知识点水平
+    rows = await db.execute("SELECT topic, level, total_attempts, total_correct FROM math_levels")
+    topics = []
+    async for r in rows:
+        acc = round(r[3] / r[2] * 100) if r[2] > 0 else 0
+        topics.append({"topic": r[0], "level": r[1], "accuracy": acc,
+                       "attempts": r[2], "correct": r[3]})
+
+    # 最近7天
+    from datetime import date, timedelta
+    week_ago = str(date.today() - timedelta(days=7))
+    row = await db.execute(
+        "SELECT date, SUM(problems_correct) as c FROM session_records "
+        "WHERE date >= ? GROUP BY date ORDER BY date", (week_ago,))
+    daily = [{"date": r[0], "correct": r[1]} for r in await row.fetchall()]
+
+    # 错题分类
+    rows = await db.execute(
+        "SELECT topic, COUNT(*) as cnt FROM wrong_answers GROUP BY topic ORDER BY cnt DESC LIMIT 5")
+    weak = [{"topic": r[0], "count": r[1]} async for r in rows]
+
+    # 连续天数 & 水晶
+    row = await db.execute("SELECT streak_days, crystals FROM child_profile WHERE id=1")
+    p = await row.fetchone()
+
+    # 亲密度
+    row = await db.execute("SELECT friendship_level FROM dudu_state WHERE id=1")
+    f = await row.fetchone()
+
+    return {
+        "total_sessions": stats[0] or 0,
+        "total_problems": stats[1] or 0,
+        "total_correct": stats[2] or 0,
+        "overall_accuracy": round(stats[2] / stats[1] * 100) if stats[1] else 0,
+        "streak_days": p[0] or 0,
+        "crystals": p[1] or 0,
+        "friendship_level": f[0] or 1,
+        "friendship_name": FRIENDSHIP_NAMES.get(f[0] or 1, ""),
+        "topics": topics,
+        "daily_history": daily,
+        "weak_topics": weak,
+    }
+
+
+# ===== 静态文件服务 =====
+
+# 挂载 TTS 缓存目录（前端可以直接播放缓存音频）
+if TTS_CACHE_DIR.exists():
+    app.mount("/tts_cache", StaticFiles(directory=str(TTS_CACHE_DIR)), name="tts_cache")
+
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+if os.path.exists(FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
