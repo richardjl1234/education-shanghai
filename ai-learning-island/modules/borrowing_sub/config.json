@@ -1,0 +1,12 @@
+{
+  "id": "borrowing_sub",
+  "name": "破十法",
+  "icon": "🔙",
+  "description": "20以内退位减法",
+  "status": "ready",
+  "grade": 1,
+  "depends": ["subtraction", "ten_complement"],
+  "route": "sprout",
+  "order": 5,
+  "entry": "/api/challenge/borrowing_sub"
+}

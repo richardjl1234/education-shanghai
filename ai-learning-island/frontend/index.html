@@ -11,6 +11,37 @@
 <!-- 全屏游戏画布 -->
 <canvas id="game-canvas"></canvas>
 
+<!-- 学科入口页（新 v2.0） -->
+<div id="subject-select" class="hidden">
+  <div class="subject-title">🗺️ 学习大陆</div>
+  <div class="subject-grid">
+    <button class="subject-btn" onclick="selectSubject('math')">
+      <span class="subject-icon">🔢</span>
+      <span class="subject-name">数学大陆</span>
+      <span class="subject-status ready">🌱 萌芽森林</span>
+    </button>
+    <button class="subject-btn disabled" onclick="">
+      <span class="subject-icon">📖</span>
+      <span class="subject-name">语文书院</span>
+      <span class="subject-status">即将开放</span>
+    </button>
+    <button class="subject-btn disabled" onclick="">
+      <span class="subject-icon">🌐</span>
+      <span class="subject-name">英语世界</span>
+      <span class="subject-status">即将开放</span>
+    </button>
+  </div>
+</div>
+
+<!-- 路线图页（新 v2.0） -->
+<div id="map-view" class="hidden">
+  <div class="map-header">
+    <button class="back-btn" onclick="showSubjectSelectFromMap()">← 返回</button>
+    <div id="map-title" class="map-title">🗺️ 学习路线图</div>
+  </div>
+  <div id="module-list" class="module-list"></div>
+</div>
+
 <!-- HUD 覆盖层 -->
 <div id="hud">
   <div id="hud-left">

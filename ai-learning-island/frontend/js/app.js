@@ -193,8 +193,122 @@ async function init() {
   updateHUD();
 
   document.getElementById('loading-overlay').classList.add('fade-out');
-  // 等待用户按键后才开始打招呼（浏览器需要用户交互才能播放音频）
-  document.getElementById('start-hint').classList.remove('hidden');
+  // 先显示学科选择页面（v2.0）
+  showSubjectSelect();
+}
+
+
+// ===== 学科选择 v2.0 =====
+
+const ROUTE_NAMES = {
+  sprout: '🌱 萌芽森林',
+  valley: '🧭 智慧山谷',
+  star: '🔮 星辰原野',
+  castle: '🏰 几何城堡',
+  dragon: '🐉 挑战龙穴',
+};
+
+function showSubjectSelect() {
+  document.getElementById('subject-select').classList.remove('hidden');
+  document.getElementById('start-hint').classList.add('hidden');
+}
+
+function selectSubject(subject) {
+  if (subject === 'math') {
+    showModuleMap();
+  }
+}
+
+async function showModuleMap() {
+  const modules = await apiGet('/modules');
+  renderModuleMap(modules);
+  document.getElementById('subject-select').classList.add('hidden');
+  document.getElementById('map-view').classList.remove('hidden');
+}
+
+function renderModuleMap(modules) {
+  const container = document.getElementById('module-list');
+
+  // 按 route 分组
+  const groups = {};
+  modules.forEach(m => {
+    const route = m.route || 'sprout';
+    if (!groups[route]) groups[route] = [];
+    groups[route].push(m);
+  });
+
+  // 如果只有一个 route，用 route 名作为标题
+  const routes = Object.keys(groups);
+  const titleEl = document.getElementById('map-title');
+  if (routes.length === 1) {
+    titleEl.textContent = ROUTE_NAMES[routes[0]] || '🗺️ 学习路线图';
+  } else {
+    titleEl.textContent = '🗺️ 学习大陆';
+  }
+
+  let html = '';
+  routes.forEach(route => {
+    const groupModules = groups[route];
+    if (routes.length > 1) {
+      html += `<div class="route-header">${ROUTE_NAMES[route] || route}</div>`;
+    }
+    groupModules.forEach(m => {
+      const isLocked = !m.available && m.status !== 'planned';
+      const isPlanned = m.status === 'planned';
+      let cls = 'module-card';
+      if (isLocked) cls += ' locked';
+      if (isPlanned) cls += ' planned';
+
+      html += `
+        <div class="${cls}" data-id="${m.id}" onclick="enterModule('${m.id}')">
+          <div class="module-icon">${isPlanned ? '⏳' : m.icon}</div>
+          <div class="module-name">${m.name}</div>
+          <div class="module-desc">${m.description || ''}</div>
+          <div class="module-grade">${isPlanned ? '即将开放' : (m.grade === 0 ? '幼小衔接' : `${m.grade}年级`)}</div>
+        </div>
+      `;
+    });
+  });
+  container.innerHTML = html;
+}
+
+async function enterModule(moduleId) {
+  const card = document.querySelector(`[data-id="${moduleId}"]`);
+  if (card?.classList.contains('locked')) return;
+
+  console.log('进入模块:', moduleId);
+
+  // 从API获取题目
+  let challenge;
+  try {
+    challenge = await apiGet(`/challenge/${moduleId}`);
+  } catch (e) {
+    console.error('获取题目失败:', e);
+    return;
+  }
+
+  if (!challenge.problems || challenge.problems.length === 0) {
+    console.error('无可用题目');
+    return;
+  }
+
+  // 切换到模块答题模式
+  state.moduleMode = true;
+  state.problems = challenge.problems;
+  state.problemIndex = 0;
+  state.stats = { attempted: 0, correct: 0 };
+  state.scene = 'challenge';
+  state._greetingStarted = true;  // 跳过初次引导
+
+  // 隐藏地图，显示答题
+  document.getElementById('map-view').classList.add('hidden');
+  updateHUD();
+  showNextProblem();
+}
+
+function showSubjectSelectFromMap() {
+  document.getElementById('map-view').classList.add('hidden');
+  showSubjectSelect();
 }
 
 // ===== API 调用 =====
@@ -892,6 +1006,12 @@ async function finishSparkle() {
   document.getElementById('challenge-panel').classList.add('hidden');
   document.getElementById('dudu-mood').textContent = '😊';
 
+  // 模块答题模式：完成后回到路线图
+  if (state.moduleMode) {
+    await finishModuleChallenge();
+    return;
+  }
+
   // 标记已解决
   if (state.sparkleIndex < state.sparkles.length) {
     state.sparkles[state.sparkleIndex].solved = true;
@@ -924,6 +1044,38 @@ async function finishSparkle() {
     state.exploring = true;
     dialogue.show('还有更多闪闪发光的地方！继续探索吧~', 'happy', 'bounce', null);
   }
+}
+
+async function finishModuleChallenge() {
+  // 保存学习记录
+  await apiPost('/sessions?zone=module_' + state.problems[0]?.topic
+    + '&problems_attempted=' + state.stats.attempted
+    + '&problems_correct=' + state.stats.correct);
+
+  // 更新水晶
+  state.profile.crystals = (state.profile.crystals || 0) + state.stats.correct;
+  await apiPost('/profile', state.profile);
+
+  updateHUD();
+
+  // 显示完成提示，等用户按键后回到路线图
+  const msg = state.stats.correct >= state.stats.attempted * 0.7
+    ? `🎉 太棒了！答对了 ${state.stats.correct}/${state.stats.attempted} 题！`
+    : `💪 继续加油！答对了 ${state.stats.correct}/${state.stats.attempted} 题`;
+
+  dialogue.show(msg, 'happy', 'sparkle', async () => {
+    dialogue.hide();
+    await returnToModuleMap();
+  });
+}
+
+async function returnToModuleMap() {
+  state.moduleMode = false;
+  state.scene = 'map';
+  const modules = await apiGet('/modules');
+  renderModuleMap(modules);
+  document.getElementById('map-view').classList.remove('hidden');
+  document.getElementById('subject-select').classList.add('hidden');
 }
 
 async function finishSession() {

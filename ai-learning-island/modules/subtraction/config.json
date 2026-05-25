@@ -1,0 +1,12 @@
+{
+  "id": "subtraction",
+  "name": "5以内减法",
+  "icon": "➖",
+  "description": "5以内减法",
+  "status": "ready",
+  "grade": 0,
+  "depends": [],
+  "route": "sprout",
+  "order": 3,
+  "entry": "/api/challenge/subtraction"
+}

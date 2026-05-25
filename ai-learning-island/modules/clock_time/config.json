@@ -1,0 +1,12 @@
+{
+  "id": "clock_time",
+  "name": "认识钟表",
+  "icon": "🕐",
+  "description": "整点、半点",
+  "status": "planned",
+  "grade": 1,
+  "depends": ["number_sense"],
+  "route": "sprout",
+  "order": 6,
+  "entry": null
+}

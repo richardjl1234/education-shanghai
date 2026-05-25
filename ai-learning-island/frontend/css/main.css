@@ -628,3 +628,187 @@ html, body {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.05); opacity: 0.8; }
 }
+
+/* ===== 学科选择页 v2.0 ===== */
+
+#subject-select {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, #1a0f30 0%, #2d1b4e 50%, #4a2c7a 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 35;
+}
+
+.subject-title {
+  font-size: 4rem;
+  font-weight: 900;
+  color: var(--text-secondary);
+  margin-bottom: 60px;
+  text-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+}
+
+.subject-grid {
+  display: flex;
+  gap: 40px;
+}
+
+.subject-btn {
+  width: 320px;
+  height: 380px;
+  background: rgba(74, 44, 122, 0.8);
+  border: 4px solid var(--accent-purple);
+  border-radius: 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.subject-btn:hover:not(.disabled) {
+  transform: translateY(-10px);
+  border-color: var(--text-secondary);
+  box-shadow: 0 20px 60px rgba(179, 136, 255, 0.4);
+}
+
+.subject-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.subject-icon {
+  font-size: 100px;
+  display: block;
+  margin-bottom: 20px;
+}
+
+.subject-name {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  margin-bottom: 15px;
+}
+
+.subject-status {
+  font-size: 1.5rem;
+  color: rgba(255,255,255,0.6);
+}
+
+.subject-status.ready {
+  color: var(--accent-green);
+}
+
+/* ===== 路线图页 v2.0 ===== */
+
+#map-view {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, #1a0f30 0%, #2d1b4e 100%);
+  display: flex;
+  flex-direction: column;
+  z-index: 35;
+  padding: 40px 60px;
+  overflow-y: auto;
+}
+
+.map-header {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  margin-bottom: 40px;
+}
+
+.back-btn {
+  font-size: 1.8rem;
+  font-weight: 700;
+  padding: 15px 30px;
+  background: transparent;
+  border: 2px solid var(--accent-purple);
+  border-radius: 20px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.back-btn:hover {
+  background: var(--accent-purple);
+}
+
+.map-title {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: var(--text-secondary);
+}
+
+.module-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 25px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.module-card {
+  background: rgba(74, 44, 122, 0.7);
+  border: 3px solid var(--accent-purple);
+  border-radius: 25px;
+  padding: 30px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.module-card:hover:not(.locked) {
+  transform: translateY(-5px);
+  border-color: var(--text-secondary);
+  box-shadow: 0 15px 40px rgba(179, 136, 255, 0.3);
+}
+
+.module-card.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.module-card .module-icon {
+  font-size: 50px;
+  margin-bottom: 15px;
+}
+
+.module-card .module-name {
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.module-card .module-desc {
+  font-size: 1.2rem;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 10px;
+}
+
+.module-card .module-grade {
+  font-size: 1rem;
+  color: var(--accent-green);
+}
+
+.module-card.planned {
+  border-color: rgba(255,255,255,0.2);
+  background: rgba(74, 44, 122, 0.3);
+}
+
+.route-header {
+  grid-column: 1 / -1;
+  font-size: 1.8rem;
+  font-weight: 900;
+  color: var(--text-secondary);
+  margin: 20px 0 10px 0;
+  padding-bottom: 10px;
+  border-bottom: 2px solid rgba(179, 136, 255, 0.3);
+}

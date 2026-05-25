@@ -1,0 +1,12 @@
+{
+  "id": "ten_complement",
+  "name": "凑十法",
+  "icon": "🔟",
+  "description": "20以内进位加法",
+  "status": "ready",
+  "grade": 1,
+  "depends": ["addition"],
+  "route": "sprout",
+  "order": 4,
+  "entry": "/api/challenge/ten_complement"
+}

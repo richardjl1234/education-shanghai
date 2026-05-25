@@ -1,0 +1,12 @@
+{
+  "id": "number_sense",
+  "name": "数感启蒙",
+  "icon": "🔢",
+  "description": "1-20数量认知",
+  "status": "ready",
+  "grade": 0,
+  "depends": [],
+  "route": "sprout",
+  "order": 1,
+  "entry": "/api/challenge/number_sense"
+}

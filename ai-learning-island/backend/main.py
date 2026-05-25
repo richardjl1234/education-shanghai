@@ -7,6 +7,7 @@ import json
 import os
 import random
 from pathlib import Path
+import glob
 
 from database import Database, init_db, get_db
 from models import ChildProfile, DialogueRequest, DialogueResponse
@@ -64,6 +65,208 @@ async def update_profile(data: ChildProfile):
         )
         await db.execute("COMMIT")
     return {"status": "ok"}
+
+
+# ===== 模块系统（v2.0 松耦合）=====
+
+MODULES_DIR = Path(__file__).parent.parent / "modules"
+
+# 模块ID → 中文知识主题 映射
+MODULE_TOPIC_MAP = {
+    "number_sense": "数感",
+    "addition": "加法",
+    "subtraction": "减法",
+    "ten_complement": "凑十法",
+    "borrowing_sub": "破十法",
+    "clock_time": "钟表",
+}
+
+# 路线英文ID → 中文名
+ROUTE_NAMES = {
+    "sprout": "🌱 萌芽森林",
+    "valley": "🧭 智慧山谷",
+    "star": "🔮 星辰原野",
+    "castle": "🏰 几何城堡",
+    "dragon": "🐉 挑战龙穴",
+}
+
+# 题目池：静态模板 + 动态生成器
+# 静态模板（答案固定，无需计算）
+STATIC_PROBLEMS = {
+    "数感": [
+        {"q": "数一数：★ ★ ★ ★ 一共有几个星星？", "a": 4, "opts": [2, 3, 4, 5]},
+        {"q": "比大小：8 和 3，哪个更大？", "a": 8, "opts": [2, 3, 5, 8]},
+        {"q": "从1数到5，第3个数是几？", "a": 3, "opts": [2, 3, 4, 5]},
+    ],
+    "图形": [
+        {"q": "下面哪个是三角形？", "a": 1, "opts": ["△", "○", "□", "☆"]},
+        {"q": "一个正方形有几条边？", "a": 4, "opts": [3, 4, 5, 6]},
+    ],
+    "钟表": [
+        {"q": "整点的时候，分针指向几？", "a": 12, "opts": [6, 12, 1, 3]},
+    ],
+    "凑十法": [
+        {"q": "8 + 5 = ? 用凑十法怎么算？", "a": 13, "opts": [11, 12, 13, 14]},
+        {"q": "7 + 6 = ?", "a": 13, "opts": [11, 12, 13, 14]},
+        {"q": "9 + 4 = ?", "a": 13, "opts": [11, 12, 13, 14]},
+    ],
+    "破十法": [
+        {"q": "15 - 8 = ? 用破十法怎么算？", "a": 7, "opts": [5, 6, 7, 8]},
+        {"q": "13 - 6 = ?", "a": 7, "opts": [5, 6, 7, 8]},
+        {"q": "16 - 9 = ?", "a": 7, "opts": [6, 7, 8, 9]},
+    ],
+}
+
+# 需要动态计算的题目（题面随机生成，答案同步计算）
+DYNAMIC_GENERATORS = {
+    "加法": lambda: _gen_add(),
+    "减法": lambda: _gen_sub(),
+    "代数思维": lambda: _gen_algebra(),
+}
+
+
+def _gen_options(correct, count=4):
+    """生成包含正确答案的选项列表"""
+    if isinstance(correct, str):
+        return [correct]
+    options = {correct}
+    attempts = 0
+    while len(options) < count and attempts < 50:
+        delta = random.choice([-3, -2, -1, 1, 2, 3])
+        distractor = correct + delta
+        if distractor >= 0 and distractor not in options:
+            options.add(distractor)
+        attempts += 1
+    while len(options) < count:
+        options.add(correct + len(options) + 1)
+    return sorted(random.sample(list(options), count))
+
+
+def _gen_add():
+    """生成加法题并计算正确答案"""
+    a = random.randint(3, 9)
+    b = random.randint(2, 6)
+    answer = a + b
+    q = random.choice([
+        f"{a} + {b} = ?",
+        f"树上有{a}只鸟，又飞来了{b}只，一共有几只？",
+    ])
+    return {"q": q, "a": answer, "opts": _gen_options(answer)}
+
+
+def _gen_sub():
+    """生成减法题并计算正确答案"""
+    a = random.randint(6, 12)
+    b = random.randint(2, min(5, a - 1))
+    answer = a - b
+    q = random.choice([
+        f"{a} - {b} = ?",
+        f"嘟嘟有{a}颗糖，吃了{b}颗，还剩几颗？",
+    ])
+    return {"q": q, "a": answer, "opts": _gen_options(answer)}
+
+
+def _gen_algebra():
+    """生成代数思维题并计算正确答案"""
+    pattern = random.choice(["missing_addend", "missing_start"])
+    if pattern == "missing_addend":
+        a = random.randint(3, 7)
+        total = random.randint(a + 2, a + 7)
+        answer = total - a
+        q = f"□ + {a} = {total}，□ = ?"
+    else:
+        known = random.randint(2, 8)
+        total = random.randint(known + 2, known + 8)
+        answer = total - known
+        q = f"{known} + □ = {total}，□ = ?"
+    return {"q": q, "a": answer, "opts": _gen_options(answer)}
+
+
+def generate_problems(topic, count=3):
+    """生成一组验证通过的题目"""
+    # 优先使用静态模板
+    if topic in STATIC_PROBLEMS:
+        pool = STATIC_PROBLEMS[topic]
+        selected = random.sample(pool, min(count, len(pool)))
+        return [dict(p) for p in selected]
+
+    # 动态生成并计算答案
+    generator = DYNAMIC_GENERATORS.get(topic)
+    if not generator:
+        return []
+
+    problems = []
+    for _ in range(count):
+        prob = generator()
+        # 验证：正确答案必须在选项中
+        if prob["a"] not in prob["opts"]:
+            prob["opts"] = _gen_options(prob["a"])
+        problems.append(prob)
+    return problems
+
+
+@app.get("/api/modules")
+async def get_modules():
+    """获取所有模块配置（路线图数据）"""
+    modules = []
+    if not MODULES_DIR.exists():
+        return []
+
+    for module_dir in MODULES_DIR.iterdir():
+        if not module_dir.is_dir():
+            continue
+        config_file = module_dir / "config.json"
+        if not config_file.exists():
+            continue
+
+        with open(config_file) as f:
+            config = json.load(f)
+
+        # 添加路由标志，表示可用
+        config["available"] = config.get("status") == "ready"
+        # 映射中文topic名
+        config["topic"] = MODULE_TOPIC_MAP.get(config["id"])
+
+        modules.append(config)
+
+    # 按路线和顺序排序
+    modules.sort(key=lambda m: (m.get("route", ""), m.get("order", 0)))
+    return modules
+
+
+@app.get("/api/modules/{module_id}")
+async def get_module(module_id: str):
+    """获取单个模块详情"""
+    config_file = MODULES_DIR / module_id / "config.json"
+    if not config_file.exists():
+        return JSONResponse(status_code=404, content={"error": "模块不存在"})
+
+    with open(config_file) as f:
+        return json.load(f)
+
+
+@app.get("/api/challenge/{module_id}")
+async def get_module_challenge(module_id: str):
+    """为模块生成一组答题题目"""
+    config_file = MODULES_DIR / module_id / "config.json"
+    if not config_file.exists():
+        return JSONResponse(status_code=404, content={"error": "模块不存在"})
+
+    with open(config_file) as f:
+        config = json.load(f)
+
+    if config.get("status") != "ready":
+        return JSONResponse(status_code=400, content={"error": "模块未就绪"})
+
+    topic = MODULE_TOPIC_MAP.get(module_id)
+    if not topic:
+        return JSONResponse(status_code=400, content={"error": "模块无对应题目"})
+
+    problems = generate_problems(topic, count=3)
+    if not problems:
+        return JSONResponse(status_code=500, content={"error": "题目生成失败"})
+
+    return {"module_id": module_id, "name": config["name"], "topic": topic, "problems": problems}
 
 
 # ===== 嘟嘟状态 =====
@@ -376,50 +579,11 @@ async def generate_similar_problem(
         ref_rows = await db.fetchall()
         refs = [{"question": r["question"], "answer": r["correct_answer"]} for r in ref_rows]
 
-    PROBLEM_TEMPLATES = {
-        "数感": [
-            {"q": "数一数：★ ★ ★ ★ 一共有几个星星？", "a": 4, "opts": [2, 3, 4, 5]},
-            {"q": "比大小：8 和 3，哪个更大？", "a": 8, "opts": [2, 3, 5, 8]},
-            {"q": "从1数到5，第3个数是几？", "a": 3, "opts": [2, 3, 4, 5]},
-        ],
-        "加法": [
-            {"q": f"{random.randint(3,9)} + {random.randint(2,6)} = ?", "a": None, "opts": None},
-            {"q": f"树上有{random.randint(3,7)}只鸟，又飞来了{random.randint(2,5)}只，一共有几只？", "a": None, "opts": None},
-        ],
-        "减法": [
-            {"q": f"{random.randint(6,12)} - {random.randint(2,5)} = ?", "a": None, "opts": None},
-            {"q": f"嘟嘟有{random.randint(5,10)}颗糖，吃了{random.randint(2,4)}颗，还剩几颗？", "a": None, "opts": None},
-        ],
-        "代数思维": [
-            {"q": f"□ + {random.randint(3,7)} = {random.randint(8,14)}，□ = ?", "a": None, "opts": None},
-            {"q": f"{random.randint(2,8)} + □ = {random.randint(6,15)}，□ = ?", "a": None, "opts": None},
-        ],
-        "图形": [
-            {"q": "下面哪个是三角形？", "a": 1, "opts": ["△", "○", "□", "☆"]},
-            {"q": "一个正方形有几条边？", "a": 4, "opts": [3, 4, 5, 6]},
-        ],
-        "钟表": [
-            {"q": "整点的时候，分针指向几？", "a": 12, "opts": [6, 12, 1, 3]},
-        ],
-        "凑十法": [
-            {"q": "8 + 5 = ? 用凑十法怎么算？", "a": 13, "opts": [11, 12, 13, 14]},
-            {"q": "7 + 6 = ?", "a": 13, "opts": [11, 12, 13, 14]},
-            {"q": "9 + 4 = ?", "a": 13, "opts": [11, 12, 13, 14]},
-        ],
-        "破十法": [
-            {"q": "15 - 8 = ? 用破十法怎么算？", "a": 7, "opts": [5, 6, 7, 8]},
-            {"q": "13 - 6 = ?", "a": 7, "opts": [5, 6, 7, 8]},
-            {"q": "16 - 9 = ?", "a": 7, "opts": [6, 7, 8, 9]},
-        ],
-    }
+    problems = generate_problems(topic, count=1)
+    if not problems:
+        return JSONResponse(status_code=500, content={"error": "题目生成失败"})
 
-    pool = PROBLEM_TEMPLATES.get(topic, PROBLEM_TEMPLATES["加法"])
-    p = random.choice(pool).copy()
-
-    if p["a"] is None:
-        p["opts"] = [4, 5, 6, 7]
-        p["a"] = 5
-
+    p = problems[0]
     return {
         "question": p["q"],
         "answer": p["a"],
@@ -584,9 +748,16 @@ async def get_report():
 if TTS_CACHE_DIR.exists():
     app.mount("/tts_cache", StaticFiles(directory=str(TTS_CACHE_DIR)), name="tts_cache")
 
-FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
-if os.path.exists(FRONTEND_DIR):
-    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+FRONTEND_DIR = Path(__file__).resolve().parent.parent / "frontend"
+if FRONTEND_DIR.exists():
+    @app.get("/{rest:path}")
+    async def serve_frontend(rest: str = ""):
+        """服务前端静态文件，作为API路由的后备"""
+        target = FRONTEND_DIR / rest if rest else FRONTEND_DIR / "index.html"
+        if target.is_file():
+            return FileResponse(str(target))
+        # SPA fallback: 所有未匹配路径返回index.html
+        return FileResponse(str(FRONTEND_DIR / "index.html"))
 
 
 if __name__ == "__main__":

@@ -1,0 +1,12 @@
+{
+  "id": "addition",
+  "name": "5以内加法",
+  "icon": "➕",
+  "description": "5以内加法",
+  "status": "ready",
+  "grade": 0,
+  "depends": [],
+  "route": "sprout",
+  "order": 2,
+  "entry": "/api/challenge/addition"
+}
