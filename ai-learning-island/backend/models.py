@@ -41,6 +41,18 @@ class MemoryEvent(BaseModel):
     event_data: dict
 
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    name: str
+    username: str
+    password: str
+    age: int = 6
+
+
 class Problem(BaseModel):
     question: str
     answer: int

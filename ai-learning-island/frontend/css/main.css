@@ -812,3 +812,220 @@ html, body {
   padding-bottom: 10px;
   border-bottom: 2px solid rgba(179, 136, 255, 0.3);
 }
+
+/* ===== 登录页 ===== */
+
+.login-page {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: linear-gradient(180deg, #1a0f30 0%, #2d1b4e 50%, #4a2c7a 100%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.login-form {
+  background: rgba(45, 27, 78, 0.95);
+  border: 3px solid var(--accent-purple);
+  border-radius: 40px;
+  padding: 60px 80px;
+  width: 500px;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(179, 136, 255, 0.3);
+}
+
+.login-title {
+  font-size: 3rem;
+  font-weight: 900;
+  color: var(--text-secondary);
+  margin-bottom: 40px;
+}
+
+.login-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 30px;
+  border-radius: 15px;
+  overflow: hidden;
+  border: 2px solid var(--accent-purple);
+}
+
+.login-tab {
+  flex: 1;
+  font-size: 1.8rem;
+  font-weight: 700;
+  padding: 15px;
+  background: transparent;
+  color: var(--text-primary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.login-tab.active {
+  background: var(--accent-purple);
+  color: #fff;
+}
+
+.login-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.login-input {
+  font-size: 1.5rem;
+  font-family: 'Noto Sans SC', sans-serif;
+  padding: 18px 25px;
+  border: 2px solid rgba(179, 136, 255, 0.4);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.login-input:focus {
+  border-color: var(--accent-purple);
+}
+
+.login-input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.login-select {
+  cursor: pointer;
+  appearance: auto;
+}
+
+.login-select option {
+  background: #2d1b4e;
+  color: var(--text-primary);
+}
+
+.login-btn {
+  font-size: 1.8rem;
+  font-weight: 700;
+  font-family: 'Noto Sans SC', sans-serif;
+  padding: 20px;
+  border: none;
+  border-radius: 15px;
+  background: var(--accent-purple);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.login-btn:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 30px rgba(179, 136, 255, 0.5);
+}
+
+.login-error {
+  font-size: 1.3rem;
+  color: var(--accent-cloud);
+  margin-top: 15px;
+  padding: 10px;
+  background: rgba(255, 82, 82, 0.15);
+  border-radius: 10px;
+}
+
+/* ===== 个人资料按钮（HUD） ===== */
+
+#profile-btn {
+  font-size: 2rem;
+  background: rgba(45, 27, 78, 0.7);
+  border: 2px solid var(--accent-pink);
+  border-radius: 50%;
+  width: 55px;
+  height: 55px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+  padding: 0;
+  line-height: 1;
+  margin-left: 15px;
+}
+
+#profile-btn:hover {
+  transform: scale(1.1);
+  background: var(--accent-pink);
+}
+
+/* HUD children inherit pointer-events:none; override for interactive elements */
+#profile-btn, #hud-left, #hud-right, #friendship-badge {
+  pointer-events: auto;
+}
+
+/* ===== 个人资料面板 ===== */
+
+.profile-content {
+  width: 100%;
+  max-width: 500px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.profile-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.profile-field label {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--accent-pink);
+}
+
+.profile-username-text {
+  font-size: 1.5rem;
+  color: var(--text-primary);
+  padding: 15px 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  text-align: left;
+}
+
+.profile-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 10px 0;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 15px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ===== 动画查看按钮 ===== */
+.animation-link-btn {
+  font-size: 1.5rem;
+  font-weight: 700;
+  padding: 16px 40px;
+  background: linear-gradient(135deg, var(--accent-purple), var(--accent-gold));
+  border: 3px solid var(--text-secondary);
+  border-radius: 20px;
+  color: #fff;
+  cursor: pointer;
+  display: inline-block;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  letter-spacing: 2px;
+  box-shadow: 0 4px 15px rgba(108, 99, 255, 0.3);
+}
+.animation-link-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 0 30px rgba(255, 215, 0, 0.4);
+}
+.animation-link-btn:active {
+  transform: scale(0.95);
+}

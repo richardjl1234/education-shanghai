@@ -12,6 +12,7 @@ const state = {
   scene: 'loading',             // loading | greeting | exploring | challenge | summary | goodbye
   profile: null,
   duduState: null,
+  currentUser: null,            // 当前登录用户信息
   problems: [],
   problemIndex: 0,
   stats: { attempted: 0, correct: 0 },
@@ -23,6 +24,8 @@ const state = {
   moveDir: { x: 0, y: 0 },    // 当前移动方向
   turnMode: 'child',            // 'parent' | 'child'
   _greetingStarted: false,      // 是否已开始打招呼（确保音频在用户交互后播放）
+  _viewAnimationResolve: null,  // 查看动画按钮 Promise resolve
+  _viewAnimationUrl: null,      // 当前动画 URL
 };
 
 const gamepad = new GamepadManager();
@@ -178,12 +181,30 @@ function getZoneDefaultTopic() {
 // ===== 初始化 =====
 
 async function init() {
-  console.log('🌟 数学魔法岛 v2.0 启动');
+  console.log('🌟 AI 学习岛 启动');
 
   gamepad.start();
   gamepad.on('press', onButtonPress);
   document.addEventListener('keydown', onKeyDown);
   document.addEventListener('keyup', onKeyUp);
+
+  // 检查登录状态
+  const token = getAuthToken();
+  if (token) {
+    try {
+      const user = await apiGet('/auth/me');
+      state.currentUser = user;
+    } catch (e) {
+      // token 无效，显示登录页
+      document.getElementById('loading-overlay').classList.add('fade-out');
+      showLoginPage();
+      return;
+    }
+  } else {
+    document.getElementById('loading-overlay').classList.add('fade-out');
+    showLoginPage();
+    return;
+  }
 
   await loadProfile();
   await loadDuduState();
@@ -193,7 +214,6 @@ async function init() {
   updateHUD();
 
   document.getElementById('loading-overlay').classList.add('fade-out');
-  // 先显示学科选择页面（v2.0）
   showSubjectSelect();
 }
 
@@ -311,17 +331,223 @@ function showSubjectSelectFromMap() {
   showSubjectSelect();
 }
 
+// ===== 登录/注册/登出 =====
+
+function showLoginPage() {
+  document.getElementById('login-page').classList.remove('hidden');
+  document.getElementById('subject-select').classList.add('hidden');
+  document.getElementById('map-view').classList.add('hidden');
+}
+
+function hideLoginPage() {
+  document.getElementById('login-page').classList.add('hidden');
+}
+
+function switchLoginTab(tab) {
+  document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.login-tab[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('login-error').classList.add('hidden');
+  if (tab === 'login') {
+    document.getElementById('login-fields').classList.remove('hidden');
+    document.getElementById('register-fields').classList.add('hidden');
+  } else {
+    document.getElementById('login-fields').classList.add('hidden');
+    document.getElementById('register-fields').classList.remove('hidden');
+  }
+}
+
+async function doLogin() {
+  const username = document.getElementById('login-username').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!username || !password) {
+    showLoginError('请填写用户名和密码');
+    return;
+  }
+
+  try {
+    const res = await fetch(API_BASE + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password }),
+    });
+    const data = await res.json();
+    if (res.status !== 200) {
+      showLoginError(data.error || '登录失败');
+      return;
+    }
+    localStorage.setItem('auth_token', data.token);
+    state.currentUser = data.profile;
+    await onLoginSuccess();
+  } catch (e) {
+    showLoginError('网络错误，请稍后重试');
+  }
+}
+
+async function doRegister() {
+  const name = document.getElementById('reg-name').value.trim() || '小朋友';
+  const username = document.getElementById('reg-username').value.trim();
+  const password = document.getElementById('reg-password').value;
+  const age = parseInt(document.getElementById('reg-age').value);
+
+  if (!username || !password) {
+    showLoginError('请填写用户名和密码');
+    return;
+  }
+  if (password.length < 4) {
+    showLoginError('密码至少4位');
+    return;
+  }
+
+  try {
+    const res = await fetch(API_BASE + '/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, username, password, age }),
+    });
+    const data = await res.json();
+    if (res.status !== 200) {
+      showLoginError(data.error || '注册失败');
+      return;
+    }
+    localStorage.setItem('auth_token', data.token);
+    state.currentUser = data.profile;
+    await onLoginSuccess();
+  } catch (e) {
+    showLoginError('网络错误，请稍后重试');
+  }
+}
+
+function showLoginError(msg) {
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+async function onLoginSuccess() {
+  hideLoginPage();
+  // 加载游戏数据
+  await loadProfile();
+  await loadDuduState();
+
+  initCanvas();
+  startGameLoop();
+  updateHUD();
+
+  showSubjectSelect();
+}
+
+async function doLogout() {
+  try {
+    await apiPost('/auth/logout');
+  } catch (e) {}
+  localStorage.removeItem('auth_token');
+  state.currentUser = null;
+  location.reload(); // 简单刷新，回到登录页
+}
+
+// ===== 个人资料面板 =====
+
+async function openProfilePanel() {
+  document.getElementById('profile-name').value = state.currentUser?.name || '';
+  document.getElementById('profile-age').value = state.currentUser?.age || 6;
+  document.getElementById('profile-username').textContent = state.currentUser?.username || '';
+  document.getElementById('profile-old-pw').value = '';
+  document.getElementById('profile-new-pw').value = '';
+  document.getElementById('profile-error').classList.add('hidden');
+  document.getElementById('profile-panel').classList.remove('hidden');
+}
+
+function closeProfilePanel() {
+  document.getElementById('profile-panel').classList.add('hidden');
+}
+
+async function saveProfile() {
+  const name = document.getElementById('profile-name').value.trim() || '小朋友';
+  const age = parseInt(document.getElementById('profile-age').value);
+  const oldPw = document.getElementById('profile-old-pw').value;
+  const newPw = document.getElementById('profile-new-pw').value;
+
+  // 更新个人信息
+  const profileData = { ...state.profile, name, age };
+  try {
+    await apiPost('/profile', profileData);
+    state.currentUser.name = name;
+    state.currentUser.age = age;
+    if (state.profile) {
+      state.profile.name = name;
+      state.profile.age = age;
+    }
+  } catch (e) {
+    showProfileError('保存失败');
+    return;
+  }
+
+  // 修改密码
+  if (oldPw && newPw) {
+    if (newPw.length < 4) {
+      showProfileError('新密码至少4位');
+      return;
+    }
+    try {
+      const res = await fetch(API_BASE + '/auth/change-password?old_password=' + encodeURIComponent(oldPw)
+        + '&new_password=' + encodeURIComponent(newPw), {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + getAuthToken() },
+      });
+      const data = await res.json();
+      if (data.error) {
+        showProfileError(data.error);
+        return;
+      }
+    } catch (e) {
+      showProfileError('密码修改失败');
+      return;
+    }
+  }
+
+  closeProfilePanel();
+  updateHUD();
+}
+
+function showProfileError(msg) {
+  const el = document.getElementById('profile-error');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
 // ===== API 调用 =====
 
+function getAuthToken() {
+  return localStorage.getItem('auth_token');
+}
+
 async function apiGet(path) {
-  const res = await fetch(API_BASE + path);
+  const headers = {};
+  const token = getAuthToken();
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const res = await fetch(API_BASE + path, { headers });
+  if (res.status === 401) {
+    // token 失效，跳回登录页
+    localStorage.removeItem('auth_token');
+    showLoginPage();
+    throw new Error('未登录');
+  }
   return res.json();
 }
 
 async function apiPost(path, data = null) {
-  const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' } };
+  const headers = { 'Content-Type': 'application/json' };
+  const token = getAuthToken();
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  const opts = { method: 'POST', headers };
   if (data) opts.body = JSON.stringify(data);
-  return (await fetch(API_BASE + path, opts)).json();
+  const res = await fetch(API_BASE + path, opts);
+  if (res.status === 401) {
+    localStorage.removeItem('auth_token');
+    showLoginPage();
+    throw new Error('未登录');
+  }
+  return res.json();
 }
 
 async function loadProfile() {
@@ -900,8 +1126,17 @@ async function showNextProblem() {
   highlightOpt(0);
 
   // 步骤教学动画（凑十法/破十法）
+  // 如果有独立动画页面，跳过文字步骤动画，只显示简短提示
   if (p.steps) {
-    await showStepByStepAnimation(p.steps);
+    if (p.animation_url) {
+      const fb = document.getElementById('challenge-feedback');
+      fb.textContent = '✨ 看看凑十法是怎么一步步算出来的吧！';
+      fb.className = 'warm show';
+      await dialogue.playTTSAndWait('看看凑十法是怎么一步步算出来的吧');
+      await delay(600);
+    } else {
+      await showStepByStepAnimation(p.steps);
+    }
   }
 
   // 启用答题
@@ -925,6 +1160,35 @@ async function showStepByStepAnimation(steps) {
       await delay(800);  // 给视觉留一点停留时间
     }
   }
+}
+
+// 显示"查看动画"按钮（凑十法专用）
+function showViewAnimationButton(problem) {
+  return new Promise(resolve => {
+    state._viewAnimationResolve = resolve;
+    state._viewAnimationUrl = problem.animation_url;
+
+    const fb = document.getElementById('challenge-feedback');
+    fb.innerHTML = ''
+      + '<span style="font-size:1.3rem;">🧐 想看看凑十法是怎么算的吗？</span>'
+      + '<br><br>'
+      + '<button class="animation-link-btn" id="btn-view-animation">'
+      + '  🎬 查看动画演示'
+      + '</button>'
+      + '<br>'
+      + '<span style="font-size:0.9rem;color:var(--text-dim);">按 A 键或点击按钮查看</span>';
+    fb.className = 'warm show';
+    fb.style.textAlign = 'center';
+
+    document.getElementById('btn-view-animation').addEventListener('click', () => {
+      if (problem.animation_url) {
+        window.open(problem.animation_url, '_blank');
+      }
+      state._viewAnimationResolve = null;
+      state._viewAnimationUrl = null;
+      resolve();
+    });
+  });
 }
 
 async function selectAnswer(value, problem) {
@@ -961,6 +1225,12 @@ async function selectAnswer(value, problem) {
     showFeedback(result);
     await dialogue.playTTSAndWait(result.text);
     await delay(800);
+
+    // 如果有动画演示，显示查看按钮
+    if (problem.animation_url) {
+      await showViewAnimationButton(problem);
+    }
+
     state.problemIndex++;
     showNextProblem();
   } else {
@@ -988,6 +1258,12 @@ async function selectAnswer(value, problem) {
     await dialogue.playTTSAndWait(teachResult.text);
 
     await delay(800);
+
+    // 如果有动画演示，显示查看按钮
+    if (problem.animation_url) {
+      await showViewAnimationButton(problem);
+    }
+
     state.problemIndex++;
     showNextProblem();
   }
@@ -1184,6 +1460,17 @@ function onButtonPress(data) {
   }
 
   if (state.scene === 'challenge') {
+    // 查看动画按钮状态：A 键打开动画
+    if (data.button === 0 && state._viewAnimationResolve) {
+      const url = state._viewAnimationUrl;
+      const resolve = state._viewAnimationResolve;
+      state._viewAnimationResolve = null;
+      state._viewAnimationUrl = null;
+      if (url) window.open(url, '_blank');
+      resolve();
+      return;
+    }
+
     if (data.button === 0 && state._answeringEnabled !== false) { // A
       const opt = document.querySelector('.challenge-option.focused');
       if (opt && state.problemIndex < state.problems.length) {

@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>凑十法动画演示</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #1a1a2e;
+    --purple: #6c63ff;
+    --purple-dark: #4a42c8;
+    --gold: #ffd700;
+    --gold-light: #ffe44d;
+    --blue: #64b5f6;
+    --blue-light: #90caf9;
+    --green: #4caf50;
+    --red: #ff5252;
+    --text: #f0f0f0;
+    --text-dim: rgba(255,255,255,0.5);
+    --card-bg: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.15);
+    --shadow: 0 8px 32px rgba(0,0,0,0.3);
+
+    --dot-size: 24px;
+    --ten-dot-size: 20px;
+    --speed: 1;
+    --transition-ms: calc(600ms / var(--speed));
+  }
+
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none;
+  }
+
+  h1 {
+    font-size: 2rem;
+    text-align: center;
+    padding: 20px 0 4px;
+    background: linear-gradient(135deg, var(--gold), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+  }
+
+  /* ===== Stage ===== */
+  .stage {
+    position: relative;
+    width: 800px;
+    max-width: 95vw;
+    min-height: 300px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 20px 20px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    transition: opacity calc(var(--transition-ms)) ease;
+  }
+  .stage.fade-out { opacity: 0; }
+  .stage.fade-in { opacity: 1; }
+
+  /* ===== Step content ===== */
+  .step-content { display: none; }
+  .step-content.active { display: block; }
+
+  /* ===== Two-column layout ===== */
+  .columns {
+    display: flex;
+    gap: 28px;
+    justify-content: center;
+    align-items: flex-start;
+  }
+  .col {
+    flex: 1;
+    max-width: 340px;
+  }
+  .col-label {
+    text-align: center;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    padding: 4px 0;
+    border-bottom: 2px solid var(--border);
+    letter-spacing: 2px;
+  }
+  .col-label.tens { color: var(--purple); border-color: var(--purple); }
+  .col-label.ones { color: var(--gold); border-color: var(--gold); }
+
+  /* ===== Ten group ===== */
+  .ten-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: center;
+    min-height: 60px;
+  }
+  .ten-group {
+    display: grid;
+    grid-template-columns: repeat(5, var(--ten-dot-size));
+    grid-template-rows: repeat(2, var(--ten-dot-size));
+    gap: 3px;
+    padding: 5px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.08);
+    transition: all calc(var(--transition-ms)) ease;
+  }
+  .ten-group.pop-in {
+    animation: popIn calc(var(--transition-ms)) ease-out forwards;
+  }
+  .ten-group.glow {
+    animation: glowPulse 1s ease-in-out infinite alternate;
+  }
+  .ten-dot {
+    width: var(--ten-dot-size);
+    height: var(--ten-dot-size);
+    border-radius: 50%;
+    transition: all calc(var(--transition-ms)) ease;
+  }
+  .ten-dot.src-a {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    box-shadow: 0 1px 4px rgba(255,215,0,0.3);
+  }
+  .ten-dot.src-b {
+    background: linear-gradient(135deg, var(--blue), var(--blue-light));
+    box-shadow: 0 1px 4px rgba(100,181,246,0.3);
+  }
+  .ten-dot.pop-in {
+    animation: popIn calc(var(--transition-ms)) ease-out forwards;
+  }
+
+  /* ===== One dots ===== */
+  .ones-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    justify-content: center;
+    min-height: 32px;
+    padding: 4px 0;
+  }
+  .one-dot {
+    width: var(--dot-size);
+    height: var(--dot-size);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: #1a1a2e;
+    transition: all calc(var(--transition-ms)) ease;
+    position: relative;
+  }
+  .one-dot.a-type {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    box-shadow: 0 1px 4px rgba(255,215,0,0.3);
+  }
+  .one-dot.b-type {
+    background: linear-gradient(135deg, var(--blue), var(--blue-light));
+    box-shadow: 0 1px 4px rgba(100,181,246,0.3);
+  }
+  .one-dot.pop-in {
+    animation: popIn calc(var(--transition-ms)) ease-out forwards;
+  }
+  .one-dot.selected {
+    border: 2px solid var(--green);
+    box-shadow: 0 0 14px rgba(76,175,80,0.6);
+    transform: scale(1.2);
+  }
+  .one-dot.dim {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  .one-dot.remain {
+    animation: popIn calc(var(--transition-ms)) ease-out forwards;
+  }
+
+  /* ===== Step description ===== */
+  .step-desc {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 1.2rem;
+    font-weight: 700;
+    min-height: 2.4rem;
+    padding: 8px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 12px;
+    transition: all calc(var(--transition-ms)) ease;
+  }
+
+  /* ===== Result ===== */
+  .result-line {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 900;
+    margin-top: 12px;
+    padding: 10px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 12px;
+  }
+  .result-line.correct { color: var(--green); }
+  .result-line.wrong { color: var(--red); }
+  .result-line .big-answer {
+    font-size: 2rem;
+    display: inline-block;
+    animation: celebrateBounce 0.6s ease-out forwards;
+  }
+
+  /* ===== Controls ===== */
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .controls button {
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 8px 18px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+  }
+  .controls button:hover {
+    background: rgba(255,255,255,0.15);
+    transform: scale(1.05);
+  }
+  .controls button:active { transform: scale(0.95); }
+  .controls button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+  .controls button.primary {
+    background: var(--purple);
+    border-color: var(--gold);
+  }
+  .controls button.primary:hover {
+    background: var(--purple-dark);
+  }
+  .controls button.green {
+    background: var(--green);
+    border-color: var(--green);
+  }
+  .controls button.return-btn {
+    background: rgba(255,255,255,0.06);
+    border-color: var(--text-dim);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  .controls button.return-btn:hover {
+    background: rgba(255,255,255,0.15);
+    color: var(--text);
+  }
+
+  .step-dots {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .step-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: all 0.2s ease;
+  }
+  .step-dot.active { background: var(--gold); transform: scale(1.3); }
+  .step-dot.done { background: var(--green); }
+
+  /* ===== Speed control ===== */
+  .speed-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .speed-section label {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+  .speed-section input[type="range"] {
+    width: 120px;
+    accent-color: var(--purple);
+    cursor: pointer;
+  }
+  .speed-btn-group { display: flex; gap: 4px; }
+  .speed-btn {
+    font-size: 0.75rem !important;
+    padding: 3px 12px !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--border) !important;
+  }
+  .speed-btn.active {
+    background: var(--purple) !important;
+    border-color: var(--gold) !important;
+  }
+  #speed-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--gold);
+    min-width: 30px;
+    text-align: center;
+  }
+
+  /* ===== Error/placeholder ===== */
+  .error-msg {
+    text-align: center;
+    padding: 30px;
+    font-size: 1.1rem;
+    color: var(--text-dim);
+  }
+  .error-msg .big { font-size: 1.8rem; color: var(--gold); margin-bottom: 10px; }
+
+  /* ===== Animations ===== */
+  @keyframes popIn {
+    0% { transform: scale(0); opacity: 0; }
+    60% { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes glowPulse {
+    0% { box-shadow: 0 0 8px rgba(255,215,0,0.2); }
+    100% { box-shadow: 0 0 24px rgba(255,215,0,0.5); }
+  }
+  @keyframes celebrateBounce {
+    0% { transform: scale(0); }
+    50% { transform: scale(1.4); }
+    70% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+  }
+
+  /* ===== Legend ===== */
+  .legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 4px;
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+  }
+  .legend-dot.a-dot { background: var(--gold); }
+  .legend-dot.b-dot { background: var(--blue); }
+
+  @media (max-width: 600px) {
+    :root {
+      --dot-size: 18px;
+      --ten-dot-size: 14px;
+    }
+    h1 { font-size: 1.3rem; }
+    .stage { padding: 12px 10px; min-height: 240px; }
+    .columns { gap: 12px; flex-direction: column; align-items: center; }
+    .col { max-width: 280px; }
+    .step-desc { font-size: 1rem; }
+    .controls button { font-size: 0.8rem; padding: 6px 12px; }
+    .result-line { font-size: 1.2rem; }
+    .result-line .big-answer { font-size: 1.6rem; }
+    .ten-group { padding: 3px; gap: 2px; }
+    .legend { font-size: 0.65rem; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🔟 凑十法</h1>
+<div class="subtitle" id="subtitle">动画演示 · 数位可视化</div>
+
+<div class="legend">
+  <div class="legend-item"><span class="legend-dot a-dot"></span> 第一个数</div>
+  <div class="legend-item"><span class="legend-dot b-dot"></span> 第二个数</div>
+</div>
+
+<div class="stage" id="stage">
+  <!-- Step 1: 认识两个数 -->
+  <div class="step-content" id="step1">
+    <div class="columns">
+      <div class="col tens-col">
+        <div class="col-label tens">十位 (10个一)</div>
+        <div class="ten-groups" id="s1-tens"></div>
+      </div>
+      <div class="col ones-col">
+        <div class="col-label ones">个位</div>
+        <div class="ones-grid" id="s1-a-ones"></div>
+        <div style="text-align:center;font-size:0.75rem;color:var(--text-dim);margin:2px 0;">⬆ <span id="s1-a-label"></span></div>
+        <div class="ones-grid" id="s1-b-ones"></div>
+        <div style="text-align:center;font-size:0.75rem;color:var(--text-dim);margin:2px 0;">⬆ <span id="s1-b-label"></span></div>
+      </div>
+    </div>
+    <div class="step-desc" id="s1-desc"></div>
+  </div>
+
+  <!-- Step 2: 找朋友 -->
+  <div class="step-content" id="step2">
+    <div class="columns">
+      <div class="col tens-col">
+        <div class="col-label tens">十位</div>
+        <div class="ten-groups" id="s2-tens"></div>
+      </div>
+      <div class="col ones-col">
+        <div class="col-label ones">个位</div>
+        <div class="ones-grid" id="s2-a-ones"></div>
+        <div style="text-align:center;font-size:0.8rem;color:var(--text-dim);margin:4px 0;">+</div>
+        <div class="ones-grid" id="s2-b-ones"></div>
+      </div>
+    </div>
+    <div class="step-desc" id="s2-desc"></div>
+  </div>
+
+  <!-- Step 3: 凑成新十位 -->
+  <div class="step-content" id="step3">
+    <div class="columns">
+      <div class="col tens-col">
+        <div class="col-label tens">十位</div>
+        <div class="ten-groups" id="s3-tens"></div>
+      </div>
+      <div class="col ones-col">
+        <div class="col-label ones">个位</div>
+        <div class="ones-grid" id="s3-ones"></div>
+      </div>
+    </div>
+    <div class="step-desc" id="s3-desc"></div>
+  </div>
+
+  <!-- Step 4: 计算结果 -->
+  <div class="step-content" id="step4">
+    <div class="columns">
+      <div class="col tens-col">
+        <div class="col-label tens">十位</div>
+        <div class="ten-groups" id="s4-tens"></div>
+      </div>
+      <div class="col ones-col">
+        <div class="col-label ones">个位</div>
+        <div class="ones-grid" id="s4-ones"></div>
+      </div>
+    </div>
+    <div class="step-desc" id="s4-desc"></div>
+    <div class="result-line" id="s4-result"></div>
+  </div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button id="btn-return" class="return-btn" title="返回主应用">↩ 返回</button>
+  <button id="btn-prev" disabled>← 上一步</button>
+  <button id="btn-auto" class="primary">▶ 自动播放</button>
+  <button id="btn-replay">↻ 重播</button>
+  <button id="btn-next" class="primary">下一步 →</button>
+  <div class="step-dots" id="step-dots">
+    <span class="step-dot" data-step="1"></span>
+    <span class="step-dot" data-step="2"></span>
+    <span class="step-dot" data-step="3"></span>
+    <span class="step-dot" data-step="4"></span>
+    <span style="margin-left:4px;" id="step-text">1/4</span>
+  </div>
+</div>
+
+<!-- Speed control -->
+<div class="speed-section">
+  <label>🎬 速度</label>
+  <input type="range" id="speed-slider" min="0.25" max="2.5" step="0.25" value="1">
+  <span id="speed-label">1x</span>
+  <div class="speed-btn-group">
+    <button class="speed-btn" data-speed="0.5">🐢 慢</button>
+    <button class="speed-btn active" data-speed="1">🐰 正常</button>
+    <button class="speed-btn" data-speed="2">🐆 快</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== Parse params =====
+  const params = new URLSearchParams(window.location.search);
+  const rawA = params.get('a');
+  const rawB = params.get('b');
+  const rawAnswer = params.get('answer');
+
+  let a = 8, b = 5, userAnswer = null;
+  let hasParams = false;
+
+  if (rawA !== null && rawB !== null) {
+    const pa = parseInt(rawA, 10);
+    const pb = parseInt(rawB, 10);
+    if (!isNaN(pa) && !isNaN(pb) && pa > 0 && pb > 0) {
+      a = pa; b = pb;
+      hasParams = true;
+      if (rawAnswer !== null) {
+        const pa2 = parseInt(rawAnswer, 10);
+        if (!isNaN(pa2)) userAnswer = pa2;
+      }
+    }
+  }
+
+  if (!hasParams) {
+    document.getElementById('subtitle').textContent = '演示示例：8 + 5';
+  }
+
+  // ===== Compute =====
+  const target = Math.ceil(a / 10) * 10;
+  const aTens = Math.floor(a / 10);
+  const aOnes = a % 10;
+  const splitFirst = target - a;
+  const splitSecond = b - splitFirst;
+  const answer = a + b;
+  const isCorrect = userAnswer !== null ? userAnswer === answer : null;
+
+  // ===== State =====
+  let currentStep = 1;
+  let isAutoPlaying = false;
+  let autoTimer = null;
+  let speed = 1;
+  let isTransitioning = false;
+
+  // ===== DOM refs =====
+  const stage = document.getElementById('stage');
+  const stepEls = {
+    1: document.getElementById('step1'),
+    2: document.getElementById('step2'),
+    3: document.getElementById('step3'),
+    4: document.getElementById('step4'),
+  };
+  const dotEls = document.querySelectorAll('.step-dot');
+  const stepText = document.getElementById('step-text');
+  const btnPrev = document.getElementById('btn-prev');
+  const btnNext = document.getElementById('btn-next');
+  const btnAuto = document.getElementById('btn-auto');
+  const btnReplay = document.getElementById('btn-replay');
+  const btnReturn = document.getElementById('btn-return');
+  const speedSlider = document.getElementById('speed-slider');
+  const speedLabel = document.getElementById('speed-label');
+  const speedBtns = document.querySelectorAll('.speed-btn');
+
+  // ===== Create helpers =====
+  function createOneDot(value, type, extraClass) {
+    const el = document.createElement('div');
+    el.className = 'one-dot ' + type + (extraClass ? ' ' + extraClass : '');
+    el.textContent = value;
+    return el;
+  }
+
+  /** Create a ten-group of 10 circles.
+   *  goldCount: how many gold circles (from a_ones or a_tens)
+   *  blueCount: how many blue circles (from b_ones)
+   *  total = goldCount + blueCount must be 10, remaining are filled with empty.
+   *  In practice only 2 cases: (10, 0) for original tens, or (aOnes, splitFirst) for new tens.
+   */
+  function createTenGroup(goldCount, blueCount, extraClass) {
+    const group = document.createElement('div');
+    group.className = 'ten-group' + (extraClass ? ' ' + extraClass : '');
+    const total = goldCount + blueCount;
+    for (let i = 0; i < 10; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'ten-dot';
+      if (i < goldCount) {
+        dot.classList.add('src-a');
+      } else if (i < total) {
+        dot.classList.add('src-b');
+      } else {
+        dot.style.visibility = 'hidden'; // empty slot
+      }
+      group.appendChild(dot);
+    }
+    return group;
+  }
+
+  // ===== Render Step 1 =====
+  function renderStep1() {
+    // Tens column: 10 small circles per ten
+    const tensEl = document.getElementById('s1-tens');
+    tensEl.innerHTML = '';
+    for (let i = 0; i < aTens; i++) {
+      const tg = createTenGroup(10, 0, 'pop-in');
+      tg.style.animationDelay = (i * 0.1) + 's';
+      tensEl.appendChild(tg);
+    }
+    if (aTens === 0) {
+      tensEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.8rem;">（没有十位）</span>';
+    }
+
+    // A ones (gold)
+    const aOnesEl = document.getElementById('s1-a-ones');
+    aOnesEl.innerHTML = '';
+    for (let i = 0; i < aOnes; i++) {
+      const dot = createOneDot(i + 1, 'a-type', 'pop-in');
+      dot.style.animationDelay = (i * 0.06) + 's';
+      aOnesEl.appendChild(dot);
+    }
+    document.getElementById('s1-a-label').textContent = `${a} = ${aTens > 0 ? '1个十 + ' : ''}${aOnes}个一`;
+
+    // B ones (blue)
+    const bOnesEl = document.getElementById('s1-b-ones');
+    bOnesEl.innerHTML = '';
+    for (let i = 0; i < b; i++) {
+      const dot = createOneDot(i + 1, 'b-type', 'pop-in');
+      dot.style.animationDelay = (i * 0.06 + 0.25) + 's';
+      bOnesEl.appendChild(dot);
+    }
+    document.getElementById('s1-b-label').textContent = `${b} = ${b}个一`;
+
+    document.getElementById('s1-desc').textContent =
+      `✨ ${a} 和 ${b}，我们一起看看它们各有几个十和几个一！`;
+  }
+
+  // ===== Render Step 2 =====
+  function renderStep2() {
+    const tensEl = document.getElementById('s2-tens');
+    tensEl.innerHTML = '';
+    for (let i = 0; i < aTens; i++) {
+      tensEl.appendChild(createTenGroup(10, 0));
+    }
+    if (aTens === 0) {
+      tensEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.8rem;">（没有十位）</span>';
+    }
+
+    // A ones (gold)
+    const aOnesEl = document.getElementById('s2-a-ones');
+    aOnesEl.innerHTML = '';
+    for (let i = 0; i < aOnes; i++) {
+      const dot = createOneDot(i + 1, 'a-type', 'pop-in');
+      dot.style.animationDelay = (i * 0.05) + 's';
+      aOnesEl.appendChild(dot);
+    }
+
+    // B ones: selected (green highlight) + dim
+    const bOnesEl = document.getElementById('s2-b-ones');
+    bOnesEl.innerHTML = '';
+    for (let i = 0; i < b; i++) {
+      const isFriend = i < splitFirst;
+      const cls = 'b-type pop-in' + (isFriend ? ' selected' : ' dim');
+      const dot = createOneDot(i + 1, 'b-type', cls);
+      dot.style.animationDelay = (i * 0.05) + 's';
+      bOnesEl.appendChild(dot);
+    }
+
+    document.getElementById('s2-desc').textContent =
+      `🔍 ${aOnes} 还需要 ${splitFirst}，才能凑成 1 个十！` +
+      ` 把 ${b} 分成 ${splitFirst} 和 ${splitSecond}`;
+  }
+
+  // ===== Render Step 3 =====
+  function renderStep3() {
+    const tensEl = document.getElementById('s3-tens');
+    tensEl.innerHTML = '';
+    // Original ten(s) — all gold circles
+    for (let i = 0; i < aTens; i++) {
+      tensEl.appendChild(createTenGroup(10, 0));
+    }
+    // New ten — mixed: aOnes gold + splitFirst blue
+    const newTg = createTenGroup(aOnes, splitFirst, 'pop-in');
+    newTg.style.animationDelay = '0.4s';
+    tensEl.appendChild(newTg);
+
+    // Remaining ones (blue, not used for merge)
+    const onesEl = document.getElementById('s3-ones');
+    onesEl.innerHTML = '';
+    if (splitSecond > 0) {
+      for (let i = 0; i < splitSecond; i++) {
+        const dot = createOneDot(i + 1, 'b-type', 'remain');
+        dot.style.animationDelay = (i * 0.06 + 0.6) + 's';
+        onesEl.appendChild(dot);
+      }
+    } else {
+      onesEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.8rem;">（没有剩余个位）</span>';
+    }
+
+    document.getElementById('s3-desc').textContent =
+      `🎯 ${aOnes} + ${splitFirst} = ${target}，凑成 1 个新十位！`;
+  }
+
+  // ===== Render Step 4 =====
+  function renderStep4() {
+    const tensEl = document.getElementById('s4-tens');
+    tensEl.innerHTML = '';
+    const totalTens = aTens + 1;
+    for (let i = 0; i < totalTens; i++) {
+      const isNew = i >= aTens;
+      const tg = createTenGroup(
+        isNew ? aOnes : 10,
+        isNew ? splitFirst : 0,
+        (isNew ? 'pop-in glow' : '')
+      );
+      tg.style.animationDelay = (i * 0.1) + 's';
+      tensEl.appendChild(tg);
+    }
+
+    // Remaining ones
+    const onesEl = document.getElementById('s4-ones');
+    onesEl.innerHTML = '';
+    if (splitSecond > 0) {
+      for (let i = 0; i < splitSecond; i++) {
+        const dot = createOneDot(i + 1, 'b-type', 'pop-in');
+        dot.style.animationDelay = (i * 0.06 + 0.3) + 's';
+        onesEl.appendChild(dot);
+      }
+    } else {
+      onesEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.8rem;">（没有剩余个位）</span>';
+    }
+
+    const descEl = document.getElementById('s4-desc');
+    descEl.textContent = `✅ ${totalTens} 个十 + ${splitSecond} 个一 = ${answer}`;
+
+    const resultEl = document.getElementById('s4-result');
+    if (userAnswer !== null) {
+      if (isCorrect) {
+        resultEl.className = 'result-line correct';
+        resultEl.innerHTML = `🎉 回答正确！<span class="big-answer">${answer}</span> ✓`;
+      } else {
+        resultEl.className = 'result-line wrong';
+        resultEl.innerHTML = `你的答案 ${userAnswer} · 正确答案是 <span class="big-answer">${answer}</span>`;
+      }
+    } else {
+      resultEl.className = 'result-line';
+      resultEl.innerHTML = `答案：<span class="big-answer">${answer}</span>`;
+    }
+  }
+
+  // ===== Switch step =====
+  function goToStep(step) {
+    if (isTransitioning || step < 1 || step > 4) return;
+    if (step === currentStep) return;
+
+    isTransitioning = true;
+    currentStep = step;
+
+    stage.classList.add('fade-out');
+
+    setTimeout(() => {
+      Object.values(stepEls).forEach(el => el.classList.remove('active'));
+
+      switch (step) {
+        case 1: renderStep1(); break;
+        case 2: renderStep2(); break;
+        case 3: renderStep3(); break;
+        case 4: renderStep4(); break;
+      }
+
+      stepEls[step].classList.add('active');
+      stage.classList.remove('fade-out');
+      stage.classList.add('fade-in');
+
+      dotEls.forEach((dot, i) => {
+        const s = i + 1;
+        dot.className = 'step-dot';
+        if (s < step) dot.classList.add('done');
+        else if (s === step) dot.classList.add('active');
+      });
+      stepText.textContent = step + '/4';
+      btnPrev.disabled = step === 1;
+      btnNext.disabled = step === 4;
+
+      setTimeout(() => {
+        stage.classList.remove('fade-in');
+        isTransitioning = false;
+      }, 300);
+    }, 300);
+  }
+
+  // ===== Reset =====
+  function resetToStep1() {
+    stopAutoPlay();
+    goToStep(1);
+  }
+
+  // ===== Auto play =====
+  function startAutoPlay() {
+    if (isAutoPlaying) return;
+    isAutoPlaying = true;
+    btnAuto.textContent = '⏸ 暂停';
+    btnAuto.className = 'green';
+    if (currentStep === 4) {
+      goToStep(1);
+    }
+    scheduleNextAuto();
+  }
+
+  function scheduleNextAuto() {
+    if (!isAutoPlaying) return;
+    const delay = Math.round(2500 / speed);
+    autoTimer = setTimeout(() => {
+      if (currentStep < 4) {
+        goToStep(currentStep + 1);
+        scheduleNextAuto();
+      } else {
+        stopAutoPlay();
+      }
+    }, delay);
+  }
+
+  function stopAutoPlay() {
+    isAutoPlaying = false;
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+    btnAuto.textContent = '▶ 自动播放';
+    btnAuto.className = 'primary';
+  }
+
+  function toggleAutoPlay() {
+    if (isAutoPlaying) {
+      stopAutoPlay();
+    } else {
+      startAutoPlay();
+    }
+  }
+
+  // ===== Speed =====
+  function setSpeed(val) {
+    speed = val;
+    document.documentElement.style.setProperty('--speed', speed);
+    speedLabel.textContent = speed + 'x';
+    speedSlider.value = speed;
+    speedBtns.forEach(btn => {
+      btn.classList.toggle('active', parseFloat(btn.dataset.speed) === speed);
+    });
+    if (isAutoPlaying) {
+      if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+      scheduleNextAuto();
+    }
+  }
+
+  // ===== Return button =====
+  btnReturn.addEventListener('click', () => {
+    // 页面由 window.open 打开，close() 可正常关闭该标签页回到主应用
+    window.close();
+    // 若 close() 无效（如用户直接打开此页面），等片刻后导航回主应用
+    setTimeout(() => { window.location.href = '/'; }, 500);
+  });
+
+  // ===== Event listeners =====
+  btnNext.addEventListener('click', () => {
+    if (isAutoPlaying) stopAutoPlay();
+    if (currentStep < 4) goToStep(currentStep + 1);
+  });
+
+  btnPrev.addEventListener('click', () => {
+    if (isAutoPlaying) stopAutoPlay();
+    if (currentStep > 1) goToStep(currentStep - 1);
+  });
+
+  btnAuto.addEventListener('click', toggleAutoPlay);
+  btnReplay.addEventListener('click', resetToStep1);
+
+  speedSlider.addEventListener('input', () => {
+    setSpeed(parseFloat(speedSlider.value));
+  });
+  speedBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      setSpeed(parseFloat(btn.dataset.speed));
+    });
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT') return; // ignore when adjusting slider
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      btnNext.click();
+    }
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      btnPrev.click();
+    }
+    if (e.key === 'r' || e.key === 'R') {
+      btnReplay.click();
+    }
+    if (e.key === 'a' || e.key === 'A') {
+      btnAuto.click();
+    }
+    if (e.key === 'Escape') {
+      btnReturn.click();
+    }
+  });
+
+  // ===== Init =====
+  function init() {
+    renderStep1();
+    stepEls[1].classList.add('active');
+    dotEls[0].classList.add('active');
+    stepText.textContent = '1/4';
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

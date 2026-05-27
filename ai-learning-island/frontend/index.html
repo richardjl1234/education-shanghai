@@ -3,13 +3,45 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=1920, initial-scale=1.0">
-<title>数学魔法岛</title>
+<title>AI 学习岛</title>
 <link rel="stylesheet" href="/css/main.css">
 </head>
 <body>
 
 <!-- 全屏游戏画布 -->
 <canvas id="game-canvas"></canvas>
+
+<!-- 登录/注册页 -->
+<div id="login-page" class="login-page">
+  <div class="login-form">
+    <div class="login-title">🌟 AI 学习岛</div>
+    <div class="login-tabs">
+      <button class="login-tab active" data-tab="login" onclick="switchLoginTab('login')">登录</button>
+      <button class="login-tab" data-tab="register" onclick="switchLoginTab('register')">注册</button>
+    </div>
+    <div id="login-fields" class="login-fields">
+      <input id="login-username" class="login-input" type="text" placeholder="用户名" autocomplete="username">
+      <input id="login-password" class="login-input" type="password" placeholder="密码" autocomplete="current-password">
+      <button class="login-btn" onclick="doLogin()">🔑 登录</button>
+    </div>
+    <div id="register-fields" class="login-fields hidden">
+      <input id="reg-name" class="login-input" type="text" placeholder="孩子的名字（小名）">
+      <input id="reg-username" class="login-input" type="text" placeholder="用户名（用于登录）" autocomplete="username">
+      <input id="reg-password" class="login-input" type="password" placeholder="密码" autocomplete="new-password">
+      <select id="reg-age" class="login-input login-select">
+        <option value="4">4岁</option>
+        <option value="5">5岁</option>
+        <option value="6" selected>6岁</option>
+        <option value="7">7岁</option>
+        <option value="8">8岁</option>
+        <option value="9">9岁</option>
+        <option value="10">10岁</option>
+      </select>
+      <button class="login-btn" onclick="doRegister()">✨ 注册</button>
+    </div>
+    <div id="login-error" class="login-error hidden"></div>
+  </div>
+</div>
 
 <!-- 学科入口页（新 v2.0） -->
 <div id="subject-select" class="hidden">
@@ -51,6 +83,49 @@
   <div id="hud-right">
     <span id="zone-name">🏠 蘑菇屋</span>
     <span id="friendship-badge">🤝 好朋友</span>
+    <button id="profile-btn" class="profile-menu-btn" onclick="openProfilePanel()">👤</button>
+  </div>
+</div>
+
+<!-- 个人资料面板 -->
+<div id="profile-panel" class="hidden fullscreen-panel">
+  <div class="panel-title">👤 个人资料</div>
+  <div class="profile-content">
+    <div class="profile-field">
+      <label>名字</label>
+      <input id="profile-name" class="login-input" type="text">
+    </div>
+    <div class="profile-field">
+      <label>年龄</label>
+      <select id="profile-age" class="login-input login-select">
+        <option value="4">4岁</option>
+        <option value="5">5岁</option>
+        <option value="6">6岁</option>
+        <option value="7">7岁</option>
+        <option value="8">8岁</option>
+        <option value="9">9岁</option>
+        <option value="10">10岁</option>
+      </select>
+    </div>
+    <div class="profile-field">
+      <label>用户名</label>
+      <span id="profile-username" class="profile-username-text"></span>
+    </div>
+    <div class="profile-divider"></div>
+    <div class="profile-field">
+      <label>原密码</label>
+      <input id="profile-old-pw" class="login-input" type="password" placeholder="输入原密码">
+    </div>
+    <div class="profile-field">
+      <label>新密码</label>
+      <input id="profile-new-pw" class="login-input" type="password" placeholder="留空则不修改">
+    </div>
+    <div id="profile-error" class="login-error hidden"></div>
+    <div class="profile-actions">
+      <button class="big-btn" onclick="saveProfile()">💾 保存</button>
+      <button class="big-btn secondary" onclick="doLogout()">🚪 登出</button>
+      <button class="big-btn secondary" onclick="closeProfilePanel()">↩ 关闭</button>
+    </div>
   </div>
 </div>
 

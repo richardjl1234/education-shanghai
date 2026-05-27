@@ -60,6 +60,8 @@ async def init_db():
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 name VARCHAR(255) NOT NULL DEFAULT '',
                 age INT DEFAULT 6,
+                username VARCHAR(100) UNIQUE,
+                password_hash VARCHAR(255),
                 current_zone VARCHAR(100) DEFAULT 'number_meadow',
                 current_level INT DEFAULT 1,
                 crystals INT DEFAULT 0,
@@ -67,7 +69,7 @@ async def init_db():
                 last_session_date VARCHAR(100),
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+""")
         await db.execute("""
             CREATE TABLE IF NOT EXISTS dudu_state (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -118,3 +120,20 @@ async def init_db():
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS auth_tokens (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                token VARCHAR(64) UNIQUE NOT NULL,
+                profile_id INT NOT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # 迁移：为已有表添加新字段（忽略已存在错误）
+        for col_sql in [
+            "ALTER TABLE child_profile ADD COLUMN username VARCHAR(100) UNIQUE",
+            "ALTER TABLE child_profile ADD COLUMN password_hash VARCHAR(255)",
+        ]:
+            try:
+                await db.execute(col_sql)
+            except Exception:
+                pass  # 字段可能已存在

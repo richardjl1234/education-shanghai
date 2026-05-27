@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Query
+from fastapi import FastAPI, Depends, Header, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse, Response
@@ -10,9 +10,10 @@ from pathlib import Path
 import glob
 
 from database import Database, init_db, get_db
-from models import ChildProfile, DialogueRequest, DialogueResponse
+from models import ChildProfile, LoginRequest, RegisterRequest, DialogueRequest, DialogueResponse
 from dialogue_engine import generate_dialogue
 from tts_service import generate_speech, is_available as tts_available, CACHE_DIR as TTS_CACHE_DIR
+from auth import hash_password, verify_password, generate_token, get_current_user
 
 app = FastAPI(title="数学魔法岛 API")
 
@@ -28,12 +29,8 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup():
     await init_db()
-    async with Database.get_db() as db:
-        await db.execute("SELECT 1 FROM child_profile LIMIT 1")
-        profile_exists = await db.fetchone()
-        if not profile_exists:
-            await db.execute("INSERT INTO child_profile (name, age, current_zone, current_level, crystals, streak_days) VALUES ('', 6, 'number_meadow', 1, 0, 0)")
 
+    async with Database.get_db() as db:
         await db.execute("SELECT 1 FROM dudu_state LIMIT 1")
         dudu_exists = await db.fetchone()
         if not dudu_exists:
@@ -44,24 +41,100 @@ async def startup():
             await db.execute("INSERT IGNORE INTO math_levels (topic, level) VALUES (%s, 1)", (t,))
 
 
+# ===== 认证系统 =====
+
+@app.post("/api/auth/register")
+async def register(data: RegisterRequest):
+    """注册新用户 → 返回 token + profile"""
+    async with Database.get_db() as db:
+        # 检查用户名是否已存在
+        await db.execute("SELECT id FROM child_profile WHERE username=%s", (data.username,))
+        if await db.fetchone():
+            return JSONResponse(status_code=409, content={"error": "用户名已存在"})
+
+        # 创建用户
+        pw_hash = hash_password(data.password)
+        await db.execute(
+            "INSERT INTO child_profile (name, username, password_hash, age) VALUES (%s, %s, %s, %s)",
+            (data.name, data.username, pw_hash, data.age),
+        )
+        profile_id = db.lastrowid
+
+        # 生成 token
+        token = generate_token()
+        await db.execute(
+            "INSERT INTO auth_tokens (token, profile_id) VALUES (%s, %s)",
+            (token, profile_id),
+        )
+        await db.execute("COMMIT")
+
+    return {"token": token, "profile": {"id": profile_id, "name": data.name, "username": data.username, "age": data.age}}
+
+
+@app.post("/api/auth/login")
+async def login(data: LoginRequest):
+    """登录 → 返回 token + profile"""
+    async with Database.get_db() as db:
+        await db.execute("SELECT * FROM child_profile WHERE username=%s", (data.username,))
+        profile = await db.fetchone()
+        if not profile or not verify_password(data.password, profile["password_hash"]):
+            return JSONResponse(status_code=401, content={"error": "用户名或密码错误"})
+
+        token = generate_token()
+        await db.execute(
+            "INSERT INTO auth_tokens (token, profile_id) VALUES (%s, %s)",
+            (token, profile["id"]),
+        )
+        await db.execute("COMMIT")
+
+    return {"token": token, "profile": {k: v for k, v in dict(profile).items() if k != "password_hash"}}
+
+
+@app.post("/api/auth/logout")
+async def logout(current_user: dict = Depends(get_current_user), authorization: str = Header("")):
+    """登出：删除当前 token"""
+    token = authorization[7:] if authorization.startswith("Bearer ") else ""
+    async with Database.get_db() as db:
+        await db.execute("DELETE FROM auth_tokens WHERE token=%s", (token,))
+        await db.execute("COMMIT")
+    return {"status": "ok"}
+
+
+@app.get("/api/auth/me")
+async def get_me(current_user: dict = Depends(get_current_user)):
+    """获取当前用户信息"""
+    return {k: v for k, v in current_user.items() if k != "password_hash"}
+
+
+@app.post("/api/auth/change-password")
+async def change_password(old_password: str, new_password: str, current_user: dict = Depends(get_current_user)):
+    """修改密码"""
+    if not verify_password(old_password, current_user["password_hash"]):
+        return JSONResponse(status_code=400, content={"error": "原密码错误"})
+
+    pw_hash = hash_password(new_password)
+    async with Database.get_db() as db:
+        await db.execute("UPDATE child_profile SET password_hash=%s WHERE id=%s",
+                         (pw_hash, current_user["id"]))
+        await db.execute("COMMIT")
+    return {"status": "ok"}
+
+
 # ===== 孩子档案 =====
 
 @app.get("/api/profile")
-async def get_profile():
-    async with Database.get_db() as db:
-        await db.execute("SELECT * FROM child_profile LIMIT 1")
-        profile = await db.fetchone()
-        return dict(profile) if profile else {}
+async def get_profile(current_user: dict = Depends(get_current_user)):
+    return {k: v for k, v in current_user.items() if k != "password_hash"}
 
 
 @app.post("/api/profile")
-async def update_profile(data: ChildProfile):
+async def update_profile(data: ChildProfile, current_user: dict = Depends(get_current_user)):
     async with Database.get_db() as db:
         await db.execute(
             """UPDATE child_profile SET name=%s, age=%s, current_zone=%s, current_level=%s,
-               crystals=%s, streak_days=%s, last_session_date=%s WHERE id=1""",
+               crystals=%s, streak_days=%s, last_session_date=%s WHERE id=%s""",
             (data.name, data.age, data.current_zone, data.current_level,
-             data.crystals, data.streak_days, data.last_session_date),
+             data.crystals, data.streak_days, data.last_session_date, current_user["id"]),
         )
         await db.execute("COMMIT")
     return {"status": "ok"}
@@ -105,11 +178,6 @@ STATIC_PROBLEMS = {
     "钟表": [
         {"q": "整点的时候，分针指向几？", "a": 12, "opts": [6, 12, 1, 3]},
     ],
-    "凑十法": [
-        {"q": "8 + 5 = ? 用凑十法怎么算？", "a": 13, "opts": [11, 12, 13, 14]},
-        {"q": "7 + 6 = ?", "a": 13, "opts": [11, 12, 13, 14]},
-        {"q": "9 + 4 = ?", "a": 13, "opts": [11, 12, 13, 14]},
-    ],
     "破十法": [
         {"q": "15 - 8 = ? 用破十法怎么算？", "a": 7, "opts": [5, 6, 7, 8]},
         {"q": "13 - 6 = ?", "a": 7, "opts": [5, 6, 7, 8]},
@@ -122,6 +190,7 @@ DYNAMIC_GENERATORS = {
     "加法": lambda: _gen_add(),
     "减法": lambda: _gen_sub(),
     "代数思维": lambda: _gen_algebra(),
+    "凑十法": lambda: _gen_ten_complement(),
 }
 
 
@@ -180,6 +249,54 @@ def _gen_algebra():
         answer = total - known
         q = f"{known} + □ = {total}，□ = ?"
     return {"q": q, "a": answer, "opts": _gen_options(answer)}
+
+
+def _gen_ten_complement():
+    """生成凑十法题目——动态生成，包含数位拆分和动画参数"""
+    # 两个难度级别：70% Level 1（凑10），30% Level 2（凑20）
+    level = 1 if random.random() < 0.7 else 2
+    if level == 1:
+        # Level 1: a=7-9，凑10
+        a = random.randint(7, 9)
+        target = 10
+        min_b = target - a + 1
+        b = random.randint(min_b, min(min_b + 3, 9))
+    else:
+        # Level 2: a=11-17，凑20
+        a = random.randint(11, 17)
+        target = 20
+        min_b = target - a + 1
+        b = random.randint(min_b, min(min_b + 3, 8))
+
+    a_tens = a // 10         # 十位个数
+    a_ones = a % 10          # 个位数
+    split_first = target - a   # 需要凑到整十的数
+    split_second = b - split_first  # 剩余部分
+    answer = a + b
+
+    q = f"{a} + {b} = ?"
+    steps = [
+        f"{a} + {b} = ？",
+        f"把{b}分成{split_first}和{split_second}，先凑{target}",
+        f"{a} + {split_first} = {target}，{target} + {split_second} = {answer}！",
+    ]
+    animation_url = f"/animation/make-ten.html?a={a}&b={b}&answer={answer}"
+
+    return {
+        "q": q,
+        "a": answer,
+        "opts": _gen_options(answer),
+        "topic": "凑十法",
+        "a_val": a,
+        "b_val": b,
+        "a_tens": a_tens,
+        "a_ones": a_ones,
+        "target": target,
+        "split_first": split_first,
+        "split_second": split_second,
+        "steps": steps,
+        "animation_url": animation_url,
+    }
 
 
 def generate_problems(topic, count=3):
