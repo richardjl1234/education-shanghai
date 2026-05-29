@@ -112,8 +112,8 @@
   }
   .ten-group {
     display: grid;
-    grid-template-columns: repeat(5, var(--ten-dot-size));
-    grid-template-rows: repeat(2, var(--ten-dot-size));
+    grid-template-columns: repeat(10, var(--ten-dot-size));
+    grid-template-rows: var(--ten-dot-size);
     gap: 3px;
     padding: 5px;
     background: rgba(255,255,255,0.04);
@@ -182,6 +182,10 @@
     border: 2px solid var(--green);
     box-shadow: 0 0 14px rgba(76,175,80,0.6);
     transform: scale(1.2);
+  }
+  .one-dot.blinking {
+    animation: blink 0.8s ease-in-out infinite;
+    border: 2px solid var(--green);
   }
   .one-dot.dim {
     opacity: 0.25;
@@ -339,6 +343,10 @@
     60% { transform: scale(1.2); opacity: 1; }
     100% { transform: scale(1); opacity: 1; }
   }
+  @keyframes blink {
+    0%, 100% { opacity: 1; box-shadow: 0 0 14px rgba(76,175,80,0.6); }
+    50% { opacity: 0.4; box-shadow: 0 0 24px rgba(76,175,80,0.9); transform: scale(1.15); }
+  }
   @keyframes glowPulse {
     0% { box-shadow: 0 0 8px rgba(255,215,0,0.2); }
     100% { box-shadow: 0 0 24px rgba(255,215,0,0.5); }
@@ -385,7 +393,7 @@
     .controls button { font-size: 0.8rem; padding: 6px 12px; }
     .result-line { font-size: 1.2rem; }
     .result-line .big-answer { font-size: 1.6rem; }
-    .ten-group { padding: 3px; gap: 2px; }
+    .ten-group { padding: 3px; gap: 2px; grid-template-columns: repeat(10, var(--ten-dot-size)); }
     .legend { font-size: 0.65rem; gap: 10px; }
   }
 </style>
@@ -541,6 +549,7 @@
   let autoTimer = null;
   let speed = 1;
   let isTransitioning = false;
+  let _step2Merged = false;   // whether merge animation played on step 2
 
   // ===== DOM refs =====
   const stage = document.getElementById('stage');
@@ -643,29 +652,30 @@
       tensEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.8rem;">（没有十位）</span>';
     }
 
-    // A ones (gold)
+    // A ones — all blink (they all need friends)
     const aOnesEl = document.getElementById('s2-a-ones');
     aOnesEl.innerHTML = '';
     for (let i = 0; i < aOnes; i++) {
-      const dot = createOneDot(i + 1, 'a-type', 'pop-in');
+      const dot = createOneDot(i + 1, 'a-type', 'blinking');
       dot.style.animationDelay = (i * 0.05) + 's';
       aOnesEl.appendChild(dot);
     }
 
-    // B ones: selected (green highlight) + dim
+    // B ones: friends blink, rest dim
     const bOnesEl = document.getElementById('s2-b-ones');
     bOnesEl.innerHTML = '';
     for (let i = 0; i < b; i++) {
       const isFriend = i < splitFirst;
-      const cls = 'b-type pop-in' + (isFriend ? ' selected' : ' dim');
+      const cls = 'b-type' + (isFriend ? ' blinking' : ' dim');
       const dot = createOneDot(i + 1, 'b-type', cls);
       dot.style.animationDelay = (i * 0.05) + 's';
       bOnesEl.appendChild(dot);
     }
 
     document.getElementById('s2-desc').textContent =
-      `🔍 ${aOnes} 还需要 ${splitFirst}，才能凑成 1 个十！` +
-      ` 把 ${b} 分成 ${splitFirst} 和 ${splitSecond}`;
+      `🔍 ${aOnes}需要好朋友${splitFirst}！` +
+      ` ${b}要拆成${splitFirst}和${splitSecond}，` +
+      `${splitFirst}会和${aOnes}做朋友，一起凑成${target}！`;
   }
 
   // ===== Render Step 3 =====
@@ -745,10 +755,112 @@
     }
   }
 
+  // ===== Step 2 merge animation: circles fly from right to left =====
+  function doStep2Merge() {
+    if (_step2Merged || isTransitioning) return;
+    isTransitioning = true;
+
+    const friendDots = document.querySelectorAll('#step2 .one-dot.blinking');
+    if (friendDots.length === 0) {
+      _step2Merged = true;
+      isTransitioning = false;
+      goToStep(3);
+      return;
+    }
+
+    // Hide originals
+    friendDots.forEach(dot => { dot.style.visibility = 'hidden'; });
+
+    // Update description
+    document.getElementById('s2-desc').textContent =
+      `🤝 ${aOnes}和${splitFirst}做好朋友，飞去十位凑成${target}！`;
+    btnNext.disabled = true;
+
+    // Get tens column container for target calculation
+    const tensCol = document.querySelector('#step2 .tens-col');
+    const tensColRect = tensCol.getBoundingClientRect();
+
+    // Target Y: below existing ten-groups or below the column label
+    const existingGroups = tensCol.querySelectorAll('.ten-group');
+    let targetY;
+    if (existingGroups.length > 0) {
+      const last = existingGroups[existingGroups.length - 1];
+      targetY = last.getBoundingClientRect().bottom + 12;
+    } else {
+      const label = tensCol.querySelector('.col-label');
+      if (label) {
+        targetY = label.getBoundingClientRect().bottom + 14;
+      } else {
+        targetY = tensColRect.top + 60;
+      }
+    }
+
+    // Target X: center the row of 10 dots in the tens column
+    const totalDots = friendDots.length;
+    const spacing = 23;           // center-to-center spacing after arrival
+    const assembledW = totalDots * spacing;
+    const startX = tensColRect.left + (tensColRect.width - assembledW) / 2 + spacing / 2;
+
+    // Create fixed-position clones at each dot's current position
+    const clones = [];
+    friendDots.forEach((dot, i) => {
+      const rect = dot.getBoundingClientRect();
+      const isGold = dot.classList.contains('a-type');
+      const valueText = dot.textContent;
+
+      const clone = document.createElement('div');
+      clone.className = 'one-dot ' + (isGold ? 'a-type' : 'b-type');
+      clone.textContent = valueText;
+      clone.style.cssText = `
+        position: fixed; left: ${rect.left}px; top: ${rect.top}px;
+        width: ${rect.width}px; height: ${rect.height}px; margin: 0;
+        z-index: 1000; pointer-events: none; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.65rem; font-weight: 800; color: #1a1a2e;
+        transition: all ${1200 + i * 80}ms cubic-bezier(0.34, 1.56, 0.64, 1);
+      `;
+      document.body.appendChild(clone);
+      clones.push(clone);
+    });
+
+    // Trigger fly animation on next frame
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        clones.forEach((clone, i) => {
+          const tx = startX + i * spacing - 12;
+          clone.style.left = tx + 'px';
+          clone.style.top = targetY + 'px';
+          clone.style.width = '20px';
+          clone.style.height = '20px';
+          clone.style.fontSize = '0.5rem';
+        });
+      });
+    });
+
+    // Clean up after all animations finish
+    const maxDur = 1200 + (clones.length - 1) * 80 + 300;
+    setTimeout(() => {
+      clones.forEach(c => c.remove());
+      _step2Merged = true;
+      isTransitioning = false;
+      btnNext.disabled = false;
+      // Auto-advance to step 3 (auto-play or after merge)
+      if (currentStep === 2 && _step2Merged) {
+        goToStep(3);
+      }
+    }, maxDur);
+  }
+
   // ===== Switch step =====
   function goToStep(step) {
     if (isTransitioning || step < 1 || step > 4) return;
     if (step === currentStep) return;
+
+    // 2→3 过渡：先播放合并动画
+    if (currentStep === 2 && step === 3 && !_step2Merged) {
+      doStep2Merge();
+      return;
+    }
 
     isTransitioning = true;
     currentStep = step;
@@ -760,7 +872,7 @@
 
       switch (step) {
         case 1: renderStep1(); break;
-        case 2: renderStep2(); break;
+        case 2: renderStep2(); _step2Merged = false; break;
         case 3: renderStep3(); break;
         case 4: renderStep4(); break;
       }
@@ -906,6 +1018,9 @@
     stepEls[1].classList.add('active');
     dotEls[0].classList.add('active');
     stepText.textContent = '1/4';
+
+    // 自动播放：页面加载1秒后开始
+    setTimeout(() => { startAutoPlay(); }, 1000);
   }
 
   init();
