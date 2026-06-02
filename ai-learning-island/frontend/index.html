@@ -83,7 +83,13 @@
   <div id="hud-right">
     <span id="zone-name">🏠 蘑菇屋</span>
     <span id="friendship-badge">🤝 好朋友</span>
-    <button id="profile-btn" class="profile-menu-btn" onclick="openProfilePanel()">👤</button>
+    <div id="hud-menu-wrap">
+      <button id="profile-btn" class="profile-menu-btn" onclick="toggleHudMenu()">☰</button>
+      <div id="hud-menu" class="hidden">
+        <div class="menu-item" onclick="openProfilePanel();closeHudMenu()">👤 个人资料</div>
+        <div class="menu-item" onclick="openSettingsPanel();closeHudMenu()">⚙️ 设置</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -125,6 +131,31 @@
       <button class="big-btn" onclick="saveProfile()">💾 保存</button>
       <button class="big-btn secondary" onclick="doLogout()">🚪 登出</button>
       <button class="big-btn secondary" onclick="closeProfilePanel()">↩ 关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 设置面板 -->
+<div id="settings-panel" class="hidden fullscreen-panel">
+  <div class="panel-title">⚙️ 设置</div>
+  <div class="profile-content">
+    <div class="profile-field">
+      <label>每轮题目数</label>
+      <select id="settings-problem-count" class="login-input login-select">
+        <option value="2">2题</option>
+        <option value="3" selected>3题</option>
+        <option value="4">4题</option>
+        <option value="5">5题</option>
+        <option value="6">6题</option>
+        <option value="7">7题</option>
+        <option value="8">8题</option>
+        <option value="9">9题</option>
+        <option value="10">10题</option>
+      </select>
+    </div>
+    <div class="profile-actions">
+      <button class="big-btn" onclick="saveSettings()">💾 保存</button>
+      <button class="big-btn secondary" onclick="closeSettingsPanel()">↩ 关闭</button>
     </div>
   </div>
 </div>
@@ -221,8 +252,8 @@
   <div id="start-hint-text">按 A 键或 空格 开始</div>
 </div>
 
-<script src="/js/gamepad.js"></script>
-<script src="/js/dialogue-ui.js"></script>
-<script src="/js/app.js"></script>
+<script src="/js/gamepad.js?v2"></script>
+<script src="/js/dialogue-ui.js?v2"></script>
+<script src="/js/app.js?v2"></script>
 </body>
 </html>

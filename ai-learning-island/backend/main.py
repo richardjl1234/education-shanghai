@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, Header, Query
+from fastapi import FastAPI, Depends, Header, Query, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, FileResponse, Response
@@ -363,7 +363,7 @@ async def get_module(module_id: str):
 
 
 @app.get("/api/challenge/{module_id}")
-async def get_module_challenge(module_id: str):
+async def get_module_challenge(module_id: str, count: int = Query(default=3, ge=1, le=10)):
     """为模块生成一组答题题目"""
     config_file = MODULES_DIR / module_id / "config.json"
     if not config_file.exists():
@@ -379,7 +379,7 @@ async def get_module_challenge(module_id: str):
     if not topic:
         return JSONResponse(status_code=400, content={"error": "模块无对应题目"})
 
-    problems = generate_problems(topic, count=3)
+    problems = generate_problems(topic, count=count)
     if not problems:
         return JSONResponse(status_code=500, content={"error": "题目生成失败"})
 

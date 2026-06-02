@@ -301,7 +301,7 @@ async function enterModule(moduleId) {
   // 从API获取题目
   let challenge;
   try {
-    challenge = await apiGet(`/challenge/${moduleId}`);
+    challenge = await apiGet(`/challenge/${moduleId}?count=${getProblemCount()}`);
   } catch (e) {
     console.error('获取题目失败:', e);
     return;
@@ -513,6 +513,51 @@ function showProfileError(msg) {
   const el = document.getElementById('profile-error');
   el.textContent = msg;
   el.classList.remove('hidden');
+}
+
+// ===== HUD 菜单 =====
+
+function toggleHudMenu() {
+  const menu = document.getElementById('hud-menu');
+  menu.classList.toggle('hidden');
+}
+
+function closeHudMenu() {
+  document.getElementById('hud-menu').classList.add('hidden');
+}
+
+// 点击页面其他地方关闭菜单
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('hud-menu-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const menu = document.getElementById('hud-menu');
+    if (menu && !menu.classList.contains('hidden')) {
+      menu.classList.add('hidden');
+    }
+  }
+});
+
+// ===== 设置面板 =====
+
+function getProblemCount() {
+  return parseInt(localStorage.getItem('problem_count')) || 3;
+}
+
+function openSettingsPanel() {
+  const sel = document.getElementById('settings-problem-count');
+  sel.value = getProblemCount();
+  document.getElementById('settings-panel').classList.remove('hidden');
+}
+
+function closeSettingsPanel() {
+  document.getElementById('settings-panel').classList.add('hidden');
+}
+
+function saveSettings() {
+  const count = parseInt(document.getElementById('settings-problem-count').value);
+  localStorage.setItem('problem_count', count);
+  closeSettingsPanel();
+  updateHUD();
 }
 
 // ===== API 调用 =====
@@ -1172,11 +1217,16 @@ function showViewAnimationButton(problem) {
     fb.innerHTML = ''
       + '<span style="font-size:1.3rem;">🧐 想看看凑十法是怎么算的吗？</span>'
       + '<br><br>'
+      + '<div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap;">'
       + '<button class="animation-link-btn" id="btn-view-animation">'
       + '  🎬 查看动画演示'
       + '</button>'
+      + '<button class="animation-link-btn next-btn" id="btn-next-problem">'
+      + '  ➡️ 下一题'
+      + '</button>'
+      + '</div>'
       + '<br>'
-      + '<span style="font-size:0.9rem;color:var(--text-dim);">按 A 键或点击按钮查看</span>';
+      + '<span style="font-size:0.9rem;color:var(--text-dim);">按 A 键查看动画，按 B 键下一题</span>';
     fb.className = 'warm show';
     fb.style.textAlign = 'center';
 
@@ -1184,6 +1234,12 @@ function showViewAnimationButton(problem) {
       if (problem.animation_url) {
         window.open(problem.animation_url, '_blank');
       }
+      state._viewAnimationResolve = null;
+      state._viewAnimationUrl = null;
+      resolve();
+    });
+
+    document.getElementById('btn-next-problem').addEventListener('click', () => {
       state._viewAnimationResolve = null;
       state._viewAnimationUrl = null;
       resolve();
@@ -1460,15 +1516,24 @@ function onButtonPress(data) {
   }
 
   if (state.scene === 'challenge') {
-    // 查看动画按钮状态：A 键打开动画
-    if (data.button === 0 && state._viewAnimationResolve) {
-      const url = state._viewAnimationUrl;
-      const resolve = state._viewAnimationResolve;
-      state._viewAnimationResolve = null;
-      state._viewAnimationUrl = null;
-      if (url) window.open(url, '_blank');
-      resolve();
-      return;
+    // 查看动画按钮状态：A 键打开动画，B 键下一题
+    if (state._viewAnimationResolve) {
+      if (data.button === 0) {
+        const url = state._viewAnimationUrl;
+        const resolve = state._viewAnimationResolve;
+        state._viewAnimationResolve = null;
+        state._viewAnimationUrl = null;
+        if (url) window.open(url, '_blank');
+        resolve();
+        return;
+      }
+      if (data.button === 1) {
+        const resolve = state._viewAnimationResolve;
+        state._viewAnimationResolve = null;
+        state._viewAnimationUrl = null;
+        resolve();
+        return;
+      }
     }
 
     if (data.button === 0 && state._answeringEnabled !== false) { // A

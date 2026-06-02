@@ -957,8 +957,44 @@ html, body {
 }
 
 /* HUD children inherit pointer-events:none; override for interactive elements */
-#profile-btn, #hud-left, #hud-right, #friendship-badge {
+#profile-btn, #hud-left, #hud-right, #friendship-badge, #hud-menu-wrap, #hud-menu, .menu-item {
   pointer-events: auto;
+}
+
+/* ===== HUD 下拉菜单 ===== */
+
+#hud-menu-wrap {
+  position: relative;
+  display: inline-flex;
+  margin-left: 15px;
+}
+
+#hud-menu {
+  position: absolute;
+  top: 62px;
+  right: 0;
+  min-width: 180px;
+  background: rgba(30, 15, 50, 0.97);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  padding: 8px 0;
+  z-index: 50;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+}
+#hud-menu.hidden { display: none; }
+#hud-menu:not(.hidden) { display: block; }
+
+.menu-item {
+  padding: 12px 22px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+  color: var(--text-primary);
+}
+.menu-item:hover {
+  background: rgba(108, 99, 255, 0.3);
 }
 
 /* ===== 个人资料面板 ===== */
@@ -1028,4 +1064,8 @@ html, body {
 }
 .animation-link-btn:active {
   transform: scale(0.95);
+}
+.animation-link-btn.next-btn {
+  background: linear-gradient(135deg, var(--accent-green, #4caf50), #388e3c);
+  border-color: rgba(255,255,255,0.3);
 }
