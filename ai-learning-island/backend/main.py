@@ -38,11 +38,7 @@ async def startup():
 
         topics = ["数感", "加法", "减法", "图形", "钟表", "代数思维", "凑十法", "破十法"]
         for t in topics:
-            # 先 SELECT 再 INSERT: 避免 INSERT IGNORE 在 aiomysql 上触发 duplicate-key warning
-            await db.execute("SELECT id FROM math_levels WHERE topic=%s", (t,))
-            exists = await db.fetchone()
-            if not exists:
-                await db.execute("INSERT INTO math_levels (topic, level) VALUES (%s, 1)", (t,))
+            await db.execute("INSERT IGNORE INTO math_levels (topic, level) VALUES (%s, 1)", (t,))
 
 
 # ===== 认证系统 =====

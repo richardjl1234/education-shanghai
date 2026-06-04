@@ -12,11 +12,7 @@ set -e
 # 路径解析（脚本位置为锚点）
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$SCRIPT_DIR"
-# config 文件位于项目父目录的父目录: ai-learning-island/start.sh
-#   → ../ (education/)
-#   → ../ (claude/)
-#   → education_config.sh
-CONFIG_FILE="$(cd "$SCRIPT_DIR/../.." && pwd)/education_config.sh"
+CONFIG_FILE="$SCRIPT_DIR/../education_config.sh"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 PID_FILE="$PROJECT_ROOT/.backend.pid"
 LOG_FILE="$PROJECT_ROOT/backend.log"
@@ -40,65 +36,74 @@ print_banner() {
 }
 
 print_usage() {
-    printf '\n%b📖 使用说明%b\n' "$BOLD" "$RESET"
-    printf '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n'
+    cat <<EOF
 
-    printf '%b1. 访问应用%b\n   浏览器打开:  %bhttp://localhost:%s%b\n' "$BOLD" "$RESET" "$GREEN" "$PORT" "$RESET"
-    printf '   TV 大屏模式:  浏览器设置 → 请求桌面版站点\n'
-    printf '                 或按 F11 进入全屏\n\n'
+${BOLD}📖 使用说明${RESET}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    printf '%b2. 首次使用 — 注册账号%b\n' "$BOLD" "$RESET"
-    printf '   - 在登录页点击「注册」标签\n'
-    printf '   - 填写: 孩子名字 / 用户名 / 密码 / 年龄\n'
-    printf '   - 注册成功 → 自动登录\n\n'
+${BOLD}1. 访问应用${RESET}
+   浏览器打开:  ${GREEN}http://localhost:${PORT}${RESET}
+   TV 大屏模式:  浏览器设置 → 请求桌面版站点
+                 或按 F11 进入全屏
 
-    printf '%b3. 已有账号 — 登录%b\n' "$BOLD" "$RESET"
-    printf '   - 默认登录页: 输入用户名 + 密码\n'
-    printf '   - Token 保存在浏览器 localStorage,7 天有效\n\n'
+${BOLD}2. 首次使用 — 注册账号${RESET}
+   - 在登录页点击「注册」标签
+   - 填写: 孩子名字 / 用户名 / 密码 / 年龄
+   - 注册成功 → 自动登录
 
-    printf '%b4. 应用主流程%b\n   登录页 → 学习大陆（选学科）\n' "$BOLD" "$RESET"
-    printf '     └─ 数学大陆（已开放）\n'
-    printf '          └─ 学习路线图 → 选择知识点\n'
-    printf '               ├─ 萌芽森林: 数感 / 5以内加减法\n'
-    printf '               ├─ 智慧山谷: 凑十法 / 破十法\n'
-    printf '               └─ 星空城堡: 钟表(规划中)\n'
-    printf '   答完一轮题 → 结算（水晶 💎 / 嘟嘟心情）→ 返回路线图\n\n'
+${BOLD}3. 已有账号 — 登录${RESET}
+   - 默认登录页: 输入用户名 + 密码
+   - Token 保存在浏览器 localStorage,7 天有效
 
-    printf '%b5. 关键操作%b\n' "$BOLD" "$RESET"
-    printf '   - 答题:   鼠标点击选项 / 手柄 A 键\n'
-    printf '   - 凑十法: 答对后可点「查看动画演示」看分步骤拆解\n'
-    printf '             点「下一题」跳过动画直接下一题\n'
-    printf '   - HUD 菜单 (右上 ☰):\n'
-    printf '       • 👤 个人资料 — 改名字/年龄/密码\n'
-    printf '       • ⚙️ 设置 — 调整每轮题目数 (2-10)\n'
-    printf '   - 嘟嘟对话: 按 A 键继续\n\n'
+${BOLD}4. 应用主流程${RESET}
+   登录页 → 学习大陆（选学科）
+     └─ 数学大陆（已开放）
+          └─ 学习路线图 → 选择知识点
+               ├─ 萌芽森林: 数感 / 5以内加减法
+               ├─ 智慧山谷: 凑十法 / 破十法
+               └─ 星空城堡: 钟表(规划中)
+   答完一轮题 → 结算（水晶 💎 / 嘟嘟心情）→ 返回路线图
 
-    printf '%b6. 家长功能%b\n   - HUD → 个人资料\n' "$BOLD" "$RESET"
-    printf '   - 路线图右下「📊 学习报告」:\n'
-    printf '       • 知识点能力分布 / 薄弱环节\n'
-    printf '       • 最近 7 天正确题数\n'
-    printf '   - 蘑菇屋 🏠: 用水晶购买装饰装扮嘟嘟\n\n'
+${BOLD}5. 关键操作${RESET}
+   - 答题:   鼠标点击选项 / 手柄 A 键
+   - 凑十法: 答对后可点「查看动画演示」看分步骤拆解
+             点「下一题」跳过动画直接下一题
+   - HUD 菜单 (右上 ☰):
+       • 👤 个人资料 — 改名字/年龄/密码
+       • ⚙️ 设置 — 调整每轮题目数 (2-10)
+   - 嘟嘟对话: 按 A 键继续
 
-    printf '%b7. 常用 API 端点%b\n' "$BOLD" "$RESET"
-    printf '   - POST /api/auth/login        登录\n'
-    printf '   - POST /api/auth/register     注册\n'
-    printf '   - GET  /api/modules           模块列表\n'
-    printf '   - GET  /api/challenge/{id}?count=N  题目\n'
-    printf '   - GET  /api/report            学习报告\n'
-    printf '   - GET  /api/dudu              嘟嘟状态\n'
-    printf '   完整路由见 backend/main.py\n\n'
+${BOLD}6. 家长功能${RESET}
+   - HUD → 个人资料
+   - 路线图右下「📊 学习报告」:
+       • 知识点能力分布 / 薄弱环节
+       • 最近 7 天正确题数
+   - 蘑菇屋 🏠: 用水晶购买装饰装扮嘟嘟
 
-    printf '%b8. 故障排查%b\n' "$BOLD" "$RESET"
-    printf '   - 端口 %s 被占:  lsof -i:%s  → kill <PID>\n' "$PORT" "$PORT"
-    printf '   - MySQL 报错:  检查 education_config.sh 中的 DB 配置\n'
-    printf '   - 重置:  删除数据库 education（会自动重建）\n'
-    printf '   - 日志:  %s\n\n' "$LOG_FILE"
+${BOLD}7. 常用 API 端点${RESET}
+   - POST /api/auth/login        登录
+   - POST /api/auth/register     注册
+   - GET  /api/modules           模块列表
+   - GET  /api/challenge/{id}?count=N  题目
+   - GET  /api/report            学习报告
+   - GET  /api/dudu              嘟嘟状态
+   完整路由见 backend/main.py
 
-    printf '%b9. 停止服务%b\n   ./start.sh --stop\n\n' "$BOLD" "$RESET"
+${BOLD}8. 故障排查${RESET}
+   - 端口 ${PORT} 被占:  lsof -i:${PORT}  → kill <PID>
+   - MySQL 报错:  检查 education_config.sh 中的 DB 配置
+   - 重置:  删除数据库 education（会自动重建）
+   - 日志:  ${LOG_FILE}
 
-    printf '%b10. 配置文件%b\n   %s\n' "$BOLD" "$RESET" "$CONFIG_FILE"
-    printf '   包含: MySQL 密码 / MiniMax API Key 等敏感信息\n'
-    printf '   ⚠️  已在 .gitignore 中,不要提交到 Git\n\n'
+${BOLD}9. 停止服务${RESET}
+   ./start.sh --stop
+
+${BOLD}10. 配置文件${RESET}
+   ${CONFIG_FILE}
+   包含: MySQL 密码 / MiniMax API Key 等敏感信息
+   ⚠️  已在 .gitignore 中,不要提交到 Git
+
+EOF
 }
 
 # ─── 检查依赖 ─────────────────────────────────────────────────────
@@ -131,10 +136,6 @@ start_foreground() {
     print_banner
     echo -e "${YELLOW}⏳ 启动中... (按 Ctrl+C 停止)${RESET}\n"
 
-    # 激活 conda 环境(子 shell 不影响当前 shell)
-    source "$(conda info --base)/etc/profile.d/conda.sh"
-    conda activate education
-
     set -a
     # shellcheck disable=SC1090
     source "$CONFIG_FILE"
@@ -155,21 +156,17 @@ start_background() {
     print_banner
     echo -e "${YELLOW}⏳ 后台启动中...${RESET}"
 
-    # 启动后台进程时把 conda 激活包进子 shell
-    (
-        source "$(conda info --base)/etc/profile.d/conda.sh"
-        conda activate education
-        set -a
-        # shellcheck disable=SC1090
-        source "$CONFIG_FILE"
-        set +a
-        cd "$BACKEND_DIR"
-        exec python3 main.py
-    ) > "$LOG_FILE" 2>&1 &
+    set -a
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+    set +a
+
+    cd "$BACKEND_DIR"
+    nohup python3 main.py > "$LOG_FILE" 2>&1 &
     echo $! > "$PID_FILE"
 
     # 等待服务就绪
-    for i in {1..20}; do
+    for i in {1..15}; do
         if curl -sf "http://localhost:${PORT}/api/modules" > /dev/null 2>&1 \
            || curl -s "http://localhost:${PORT}/" > /dev/null 2>&1; then
             echo -e "${GREEN}✓ 服务已启动 (PID: $(cat "$PID_FILE"))${RESET}"
