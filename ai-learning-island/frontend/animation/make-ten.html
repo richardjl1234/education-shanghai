@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>凑十法动画演示</title>
+<title>凑十法动画演示（SVG 版）</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -23,8 +23,6 @@
     --border: rgba(255,255,255,0.15);
     --shadow: 0 8px 32px rgba(0,0,0,0.3);
 
-    --dot-size: 24px;
-    --ten-dot-size: 20px;
     --speed: 1;
     --transition-ms: calc(900ms / var(--speed));
   }
@@ -62,11 +60,10 @@
     position: relative;
     width: 800px;
     max-width: 95vw;
-    min-height: 300px;
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 20px;
-    padding: 20px 20px;
+    padding: 20px;
     box-shadow: var(--shadow);
     overflow: hidden;
     transition: opacity calc(var(--transition-ms)) ease;
@@ -74,134 +71,23 @@
   .stage.fade-out { opacity: 0; }
   .stage.fade-in { opacity: 1; }
 
-  /* ===== Step content ===== */
-  .step-content { display: none; }
-  .step-content.active { display: block; }
-
-  /* ===== Two-column layout ===== */
-  .columns {
-    display: flex;
-    gap: 28px;
-    justify-content: center;
-    align-items: flex-start;
+  /* SVG 全宽 */
+  .stage-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 60vh;
   }
-  .col {
-    flex: 1;
-    max-width: 340px;
-  }
-  .col-label {
-    text-align: center;
-    font-size: 1rem;
-    font-weight: 700;
-    color: var(--text-dim);
-    margin-bottom: 12px;
-    padding: 4px 0;
-    border-bottom: 2px solid var(--border);
-    letter-spacing: 2px;
-  }
-  .col-label.tens { color: var(--purple); border-color: var(--purple); }
-  .col-label.ones { color: var(--gold); border-color: var(--gold); }
-
-  /* ===== Ten group ===== */
-  .ten-groups {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    align-items: center;
-    min-height: 60px;
-  }
-  .ten-group {
-    display: grid;
-    grid-template-columns: repeat(10, var(--ten-dot-size));
-    grid-template-rows: var(--ten-dot-size);
-    gap: 3px;
-    padding: 5px;
-    background: rgba(255,255,255,0.04);
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,0.08);
-    transition: all calc(var(--transition-ms)) ease;
-  }
-  .ten-group.pop-in {
-    animation: popIn calc(var(--transition-ms)) ease-out forwards;
-  }
-  .ten-group.glow {
-    animation: glowPulse 1s ease-in-out infinite alternate;
-  }
-  .ten-dot {
-    width: var(--ten-dot-size);
-    height: var(--ten-dot-size);
-    border-radius: 50%;
-    transition: all calc(var(--transition-ms)) ease;
-  }
-  .ten-dot.src-a {
-    background: linear-gradient(135deg, var(--gold), var(--gold-light));
-    box-shadow: 0 1px 4px rgba(255,215,0,0.3);
-  }
-  .ten-dot.src-b {
-    background: linear-gradient(135deg, var(--blue), var(--blue-light));
-    box-shadow: 0 1px 4px rgba(100,181,246,0.3);
-  }
-  .ten-dot.pop-in {
-    animation: popIn calc(var(--transition-ms)) ease-out forwards;
-  }
-
-  /* ===== One dots ===== */
-  .ones-grid {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    justify-content: center;
-    min-height: 32px;
-    padding: 4px 0;
-  }
-  .one-dot {
-    width: var(--dot-size);
-    height: var(--dot-size);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.65rem;
-    font-weight: 800;
-    color: #1a1a2e;
-    transition: all calc(var(--transition-ms)) ease;
-    position: relative;
-  }
-  .one-dot.a-type {
-    background: linear-gradient(135deg, var(--gold), var(--gold-light));
-    box-shadow: 0 1px 4px rgba(255,215,0,0.3);
-  }
-  .one-dot.b-type {
-    background: linear-gradient(135deg, var(--blue), var(--blue-light));
-    box-shadow: 0 1px 4px rgba(100,181,246,0.3);
-  }
-  .one-dot.pop-in {
-    animation: popIn calc(var(--transition-ms)) ease-out forwards;
-  }
-  .one-dot.selected {
-    border: 2px solid var(--green);
-    box-shadow: 0 0 14px rgba(76,175,80,0.6);
-    transform: scale(1.2);
-  }
-  .one-dot.blinking {
-    animation: blink 1.2s ease-in-out infinite;
-    border: 2px solid var(--green);
-  }
-  .one-dot.dim {
-    opacity: 0.25;
-    transform: scale(0.8);
-  }
-  .one-dot.remain {
-    animation: popIn calc(var(--transition-ms)) ease-out forwards;
-  }
+  .step-group { display: none; }
+  .step-group.active { display: inline; }
 
   /* ===== Step description ===== */
   .step-desc {
     text-align: center;
-    margin-top: 14px;
-    font-size: 1.2rem;
+    margin-top: 8px;
+    font-size: 1.1rem;
     font-weight: 700;
-    min-height: 2.4rem;
+    min-height: 2rem;
     padding: 8px;
     background: rgba(255,255,255,0.04);
     border-radius: 12px;
@@ -210,12 +96,11 @@
 
   /* ===== Description log ===== */
   #desc-log {
-    margin-top: 10px;
-    padding: 8px 12px;
+    margin-top: 8px;
+    padding: 6px 12px;
     background: rgba(255,255,255,0.03);
     border-radius: 10px;
     border: 1px solid rgba(255,255,255,0.06);
-    min-height: 0;
   }
   .desc-log-item {
     font-size: 0.85rem;
@@ -229,17 +114,17 @@
   /* ===== Result ===== */
   .result-line {
     text-align: center;
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     font-weight: 900;
-    margin-top: 12px;
-    padding: 10px;
+    margin-top: 8px;
+    padding: 8px;
     background: rgba(255,255,255,0.05);
     border-radius: 12px;
   }
   .result-line.correct { color: var(--green); }
   .result-line.wrong { color: var(--red); }
   .result-line .big-answer {
-    font-size: 2rem;
+    font-size: 1.8rem;
     display: inline-block;
     animation: celebrateBounce 0.6s ease-out forwards;
   }
@@ -275,13 +160,8 @@
     background: var(--purple);
     border-color: var(--gold);
   }
-  .controls button.primary:hover {
-    background: var(--purple-dark);
-  }
-  .controls button.green {
-    background: var(--green);
-    border-color: var(--green);
-  }
+  .controls button.primary:hover { background: var(--purple-dark); }
+  .controls button.green { background: var(--green); border-color: var(--green); }
   .controls button.return-btn {
     background: rgba(255,255,255,0.06);
     border-color: var(--text-dim);
@@ -318,10 +198,7 @@
     justify-content: center;
     flex-wrap: wrap;
   }
-  .speed-section label {
-    font-size: 0.9rem;
-    color: var(--text-dim);
-  }
+  .speed-section label { font-size: 0.9rem; color: var(--text-dim); }
   .speed-section input[type="range"] {
     width: 120px;
     accent-color: var(--purple);
@@ -346,38 +223,51 @@
     text-align: center;
   }
 
-  /* ===== Error/placeholder ===== */
-  .error-msg {
-    text-align: center;
-    padding: 30px;
-    font-size: 1.1rem;
-    color: var(--text-dim);
-  }
-  .error-msg .big { font-size: 1.8rem; color: var(--gold); margin-bottom: 10px; }
-
   /* ===== Animations ===== */
   @keyframes popIn {
-    0% { transform: scale(0); opacity: 0; }
-    60% { transform: scale(1.2); opacity: 1; }
-    100% { transform: scale(1); opacity: 1; }
+    0%   { transform: scale(0);   opacity: 0; }
+    60%  { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1);   opacity: 1; }
   }
   @keyframes blink {
-    0%, 100% { opacity: 1; box-shadow: 0 0 14px rgba(76,175,80,0.6); }
-    50% { opacity: 0.4; box-shadow: 0 0 24px rgba(76,175,80,0.9); transform: scale(1.15); }
+    0%, 100% { opacity: 1;   transform: scale(1); }
+    50%      { opacity: 0.4; transform: scale(1.15); }
   }
   @keyframes glowPulse {
-    0% { box-shadow: 0 0 8px rgba(255,215,0,0.2); }
-    100% { box-shadow: 0 0 24px rgba(255,215,0,0.5); }
+    0%, 100% { filter: drop-shadow(0 0 4px rgba(255,215,0,0.3)); }
+    50%      { filter: drop-shadow(0 0 12px rgba(255,215,0,0.8)); }
   }
   @keyframes celebrateBounce {
-    0% { transform: scale(0); }
-    50% { transform: scale(1.4); }
-    70% { transform: scale(0.9); }
+    0%   { transform: scale(0); }
+    50%  { transform: scale(1.4); }
+    70%  { transform: scale(0.9); }
     100% { transform: scale(1); }
   }
   @keyframes slideUp {
-    0% { transform: translateY(10px); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
+    0%   { transform: translateY(10px); opacity: 0; }
+    100% { transform: translateY(0);    opacity: 1; }
+  }
+
+  /* ===== SVG 元素动画适配 ===== */
+  .svg-pop-in {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: popIn calc(var(--transition-ms)) ease-out forwards;
+  }
+  .svg-blink {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: blink 1.2s ease-in-out infinite;
+  }
+  .svg-glow {
+    animation: glowPulse 1s ease-in-out infinite;
+  }
+  .svg-dim {
+    opacity: 0.25;
+    transform: scale(0.8);
+    transform-box: fill-box;
+    transform-origin: center;
+    transition: all calc(var(--transition-ms)) ease;
   }
 
   /* ===== Legend ===== */
@@ -390,32 +280,18 @@
     font-size: 0.75rem;
     color: var(--text-dim);
   }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .legend-dot {
-    width: 12px; height: 12px;
-    border-radius: 50%;
-  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
   .legend-dot.a-dot { background: var(--gold); }
   .legend-dot.b-dot { background: var(--blue); }
 
   @media (max-width: 600px) {
-    :root {
-      --dot-size: 18px;
-      --ten-dot-size: 14px;
-    }
     h1 { font-size: 1.3rem; }
-    .stage { padding: 12px 10px; min-height: 240px; }
-    .columns { gap: 12px; flex-direction: column; align-items: center; }
-    .col { max-width: 280px; }
-    .step-desc { font-size: 1rem; }
+    .stage { padding: 12px 10px; }
+    .step-desc { font-size: 0.95rem; }
     .controls button { font-size: 0.8rem; padding: 6px 12px; }
-    .result-line { font-size: 1.2rem; }
-    .result-line .big-answer { font-size: 1.6rem; }
-    .ten-group { padding: 3px; gap: 2px; grid-template-columns: repeat(10, var(--ten-dot-size)); }
+    .result-line { font-size: 1.1rem; }
+    .result-line .big-answer { font-size: 1.5rem; }
     .legend { font-size: 0.65rem; gap: 10px; }
   }
 </style>
@@ -423,7 +299,7 @@
 <body>
 
 <h1>🔟 凑十法</h1>
-<div class="subtitle" id="subtitle">动画演示 · 数位可视化</div>
+<div class="subtitle" id="subtitle">动画演示 · 数位可视化（SVG 版）</div>
 
 <div class="legend">
   <div class="legend-item"><span class="legend-dot a-dot"></span> 第一个数</div>
@@ -431,73 +307,87 @@
 </div>
 
 <div class="stage" id="stage">
-  <!-- Step 1: 认识两个数 -->
-  <div class="step-content" id="step1">
-    <div class="columns">
-      <div class="col tens-col">
-        <div class="col-label tens">十位 (10个一)</div>
-        <div class="ten-groups" id="s1-tens"></div>
-      </div>
-      <div class="col ones-col">
-        <div class="col-label ones">个位</div>
-        <div class="ones-grid" id="s1-a-ones"></div>
-        <div style="text-align:center;font-size:0.75rem;color:var(--text-dim);margin:2px 0;">⬆ <span id="s1-a-label"></span></div>
-        <div class="ones-grid" id="s1-b-ones"></div>
-        <div style="text-align:center;font-size:0.75rem;color:var(--text-dim);margin:2px 0;">⬆ <span id="s1-b-label"></span></div>
-      </div>
-    </div>
-    <div class="step-desc" id="s1-desc"></div>
-  </div>
+  <!-- 单一 SVG 内含 4 个步骤组 -->
+  <svg viewBox="0 0 800 480" class="stage-svg" id="stage-svg" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#ffe44d"/>
+        <stop offset="100%" stop-color="#ffd700"/>
+      </linearGradient>
+      <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#90caf9"/>
+        <stop offset="100%" stop-color="#64b5f6"/>
+      </linearGradient>
+      <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%"   stop-color="#8b85ff"/>
+        <stop offset="100%" stop-color="#6c63ff"/>
+      </linearGradient>
+      <filter id="greenGlow" x="-50%" y="-50%" width="200%" height="200%">
+        <feGaussianBlur stdDeviation="2" result="b"/>
+        <feFlood flood-color="#4caf50" flood-opacity="0.6"/>
+        <feComposite in2="b" operator="in"/>
+        <feMerge>
+          <feMergeNode/>
+          <feMergeNode in="SourceGraphic"/>
+        </feMerge>
+      </filter>
+    </defs>
 
-  <!-- Step 2: 找朋友 -->
-  <div class="step-content" id="step2">
-    <div class="columns">
-      <div class="col tens-col">
-        <div class="col-label tens">十位</div>
-        <div class="ten-groups" id="s2-tens"></div>
-      </div>
-      <div class="col ones-col">
-        <div class="col-label ones">个位</div>
-        <div class="ones-grid" id="s2-a-ones"></div>
-        <div style="text-align:center;font-size:0.8rem;color:var(--text-dim);margin:4px 0;">+</div>
-        <div class="ones-grid" id="s2-b-ones"></div>
-      </div>
-    </div>
-    <div class="step-desc" id="s2-desc"></div>
-  </div>
+    <!-- ========== Step 1: 认识两个数 ========== -->
+    <g id="step1-group" class="step-group">
+      <!-- Column headers -->
+      <text x="220" y="55" text-anchor="middle" fill="#6c63ff" font-size="18" font-weight="700" letter-spacing="2">十位 (10个一)</text>
+      <text x="590" y="55" text-anchor="middle" fill="#ffd700" font-size="18" font-weight="700" letter-spacing="2">个位</text>
 
-  <!-- Step 3: 凑成新十位 -->
-  <div class="step-content" id="step3">
-    <div class="columns">
-      <div class="col tens-col">
-        <div class="col-label tens">十位</div>
-        <div class="ten-groups" id="s3-tens"></div>
-      </div>
-      <div class="col ones-col">
-        <div class="col-label ones">个位</div>
-        <div class="ones-grid" id="s3-ones"></div>
-      </div>
-    </div>
-    <div class="step-desc" id="s3-desc"></div>
-  </div>
+      <!-- Tens column: 容器由 JS 填充 -->
+      <g id="s1-tens" data-col="tens" data-step="1"></g>
+      <!-- Ones column rows: 容器由 JS 填充 -->
+      <g id="s1-a-ones" data-row="a"></g>
+      <g id="s1-a-label-row"></g>
+      <g id="s1-b-ones" data-row="b"></g>
+      <g id="s1-b-label-row"></g>
+    </g>
 
-  <!-- Step 4: 计算结果 -->
-  <div class="step-content" id="step4">
-    <div class="columns">
-      <div class="col tens-col">
-        <div class="col-label tens">十位</div>
-        <div class="ten-groups" id="s4-tens"></div>
-      </div>
-      <div class="col ones-col">
-        <div class="col-label ones">个位</div>
-        <div class="ones-grid" id="s4-ones"></div>
-      </div>
-    </div>
-    <div class="step-desc" id="s4-desc"></div>
-    <div class="result-line" id="s4-result"></div>
-  </div>
+    <!-- ========== Step 2: 找朋友 ========== -->
+    <g id="step2-group" class="step-group">
+      <text x="220" y="55" text-anchor="middle" fill="#6c63ff" font-size="18" font-weight="700" letter-spacing="2">十位</text>
+      <text x="590" y="55" text-anchor="middle" fill="#ffd700" font-size="18" font-weight="700" letter-spacing="2">个位</text>
 
-  <!-- Description log -->
+      <g id="s2-tens" data-col="tens" data-step="2"></g>
+      <g id="s2-a-ones" data-row="a"></g>
+      <text x="590" y="200" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="22" font-weight="700" id="s2-plus">+</text>
+      <g id="s2-b-ones" data-row="b"></g>
+    </g>
+
+    <!-- ========== Step 3: 凑成新十位 ========== -->
+    <g id="step3-group" class="step-group">
+      <text x="220" y="55" text-anchor="middle" fill="#6c63ff" font-size="18" font-weight="700" letter-spacing="2">十位</text>
+      <text x="590" y="55" text-anchor="middle" fill="#ffd700" font-size="18" font-weight="700" letter-spacing="2">个位</text>
+
+      <g id="s3-tens" data-col="tens" data-step="3"></g>
+      <g id="s3-ones" data-row="remain"></g>
+      <text x="590" y="320" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="14" id="s3-empty" style="display:none">（没有剩余个位）</text>
+    </g>
+
+    <!-- ========== Step 4: 计算结果 ========== -->
+    <g id="step4-group" class="step-group">
+      <text x="220" y="55" text-anchor="middle" fill="#6c63ff" font-size="18" font-weight="700" letter-spacing="2">十位</text>
+      <text x="590" y="55" text-anchor="middle" fill="#ffd700" font-size="18" font-weight="700" letter-spacing="2">个位</text>
+
+      <g id="s4-tens" data-col="tens" data-step="4"></g>
+      <g id="s4-ones" data-row="remain"></g>
+      <text x="590" y="320" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="14" id="s4-empty" style="display:none">（没有剩余个位）</text>
+    </g>
+
+    <!-- 飞行动画层（位于所有步骤之上） -->
+    <g id="fly-layer"></g>
+  </svg>
+
+  <!-- 步骤说明文字 -->
+  <div class="step-desc" id="step-desc"></div>
+  <!-- 步骤 4 结果行 -->
+  <div class="result-line" id="result-line" style="display:none"></div>
+  <!-- 描述日志 -->
   <div id="desc-log"></div>
 </div>
 
@@ -533,6 +423,19 @@
 (function() {
   'use strict';
 
+  // ===== 几何常量（SVG 坐标系） =====
+  const TENS_CX = 220;          // 十位列中心 x
+  const ONES_CX = 590;          // 个位列中心 x
+  const TEN_GROUP_Y0 = 90;      // 第一个十位组 y
+  const TEN_GROUP_GAP = 28;     // 十位组之间垂直间距
+  const ONE_DOT_R = 12;         // 个位圆点半径
+  const ONE_DOT_SPACING = 30;   // 个位圆点间距
+  const TEN_DOT_R = 6;          // 十位圆点半径
+  const TEN_DOT_SPACING = 14;   // 十位圆点间距
+  const ROW_A_Y = 130;          // step1/2 中 a 的个位行 y
+  const ROW_B_Y = 240;          // step1/2 中 b 的个位行 y
+  const ROW_REMAIN_Y = 200;     // step3/4 中剩余个位 y
+
   // ===== Parse params =====
   const params = new URLSearchParams(window.location.search);
   const rawA = params.get('a');
@@ -556,7 +459,7 @@
   }
 
   if (!hasParams) {
-    document.getElementById('subtitle').textContent = '演示示例：8 + 5';
+    document.getElementById('subtitle').textContent = '演示示例：8 + 5（SVG 版）';
   }
 
   // ===== Compute =====
@@ -574,8 +477,18 @@
   let autoTimer = null;
   let speed = 1;
   let isTransitioning = false;
-  let _step2Merged = false;   // whether merge animation played on step 2
-  let _descLog = new Set();   // track logged descriptions to dedup
+  let _step2Merged = false;
+  let _descLog = new Set();
+
+  // ===== SVG 命名空间 =====
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS(SVG_NS, tag);
+    if (attrs) {
+      for (const k in attrs) el.setAttribute(k, attrs[k]);
+    }
+    return el;
+  }
 
   // ===== Description log =====
   function appendToDescLog(text) {
@@ -587,7 +500,6 @@
     item.textContent = text;
     log.appendChild(item);
   }
-
   function clearDescLog() {
     document.getElementById('desc-log').innerHTML = '';
     _descLog = new Set();
@@ -595,14 +507,16 @@
 
   // ===== DOM refs =====
   const stage = document.getElementById('stage');
-  const stepEls = {
-    1: document.getElementById('step1'),
-    2: document.getElementById('step2'),
-    3: document.getElementById('step3'),
-    4: document.getElementById('step4'),
+  const stepGroups = {
+    1: document.getElementById('step1-group'),
+    2: document.getElementById('step2-group'),
+    3: document.getElementById('step3-group'),
+    4: document.getElementById('step4-group'),
   };
   const dotEls = document.querySelectorAll('.step-dot');
   const stepText = document.getElementById('step-text');
+  const stepDescEl = document.getElementById('step-desc');
+  const resultEl = document.getElementById('result-line');
   const btnPrev = document.getElementById('btn-prev');
   const btnNext = document.getElementById('btn-next');
   const btnAuto = document.getElementById('btn-auto');
@@ -611,178 +525,286 @@
   const speedSlider = document.getElementById('speed-slider');
   const speedLabel = document.getElementById('speed-label');
   const speedBtns = document.querySelectorAll('.speed-btn');
+  const flyLayer = document.getElementById('fly-layer');
 
-  // ===== Create helpers =====
-  function createOneDot(value, type, extraClass) {
-    const el = document.createElement('div');
-    el.className = 'one-dot ' + type + (extraClass ? ' ' + extraClass : '');
-    el.textContent = value;
-    return el;
+  // ===== 清除容器 =====
+  function clearGroup(parent) {
+    while (parent.firstChild) parent.removeChild(parent.firstChild);
   }
 
-  /** Create a ten-group of 10 circles.
-   *  goldCount: how many gold circles (from a_ones or a_tens)
-   *  blueCount: how many blue circles (from b_ones)
-   *  total = goldCount + blueCount must be 10, remaining are filled with empty.
-   *  In practice only 2 cases: (10, 0) for original tens, or (aOnes, splitFirst) for new tens.
-   */
-  function createTenGroup(goldCount, blueCount, extraClass) {
-    const group = document.createElement('div');
-    group.className = 'ten-group' + (extraClass ? ' ' + extraClass : '');
+  // ===== 创建个位圆点 =====
+  function createOneDot(value, type, extras) {
+    extras = extras || {};
+    const cx = extras.cx;
+    const cy = extras.cy;
+    const cls = extras.cls || '';
+    const clsPop = extras.popIn ? ' svg-pop-in' : '';
+    const clsBlink = extras.blink ? ' svg-blink' : '';
+    const clsDim = extras.dim ? ' svg-dim' : '';
+    const finalCls = (type === 'a' ? 'a-type' : 'b-type') + clsPop + clsBlink + clsDim;
+    const fill = type === 'a' ? 'url(#goldGrad)' : 'url(#blueGrad)';
+    const g = svgEl('g', { class: finalCls });
+    if (extras.popInDelay) {
+      g.style.animationDelay = extras.popInDelay + 's';
+    }
+    if (extras.blinkDelay) {
+      g.style.animationDelay = (parseFloat(g.style.animationDelay || '0') + extras.blinkDelay) + 's';
+    }
+    const circle = svgEl('circle', {
+      cx: cx, cy: cy, r: ONE_DOT_R,
+      fill: fill,
+      stroke: extras.blink ? '#4caf50' : 'none',
+      'stroke-width': extras.blink ? 2 : 0,
+    });
+    g.appendChild(circle);
+    if (extras.showValue !== false) {
+      const text = svgEl('text', {
+        x: cx, y: cy + 4,
+        'text-anchor': 'middle',
+        'font-size': '13',
+        'font-weight': '800',
+        fill: '#1a1a2e',
+        'pointer-events': 'none',
+      });
+      text.textContent = value;
+      g.appendChild(text);
+    }
+    return g;
+  }
+
+  // ===== 创建十位组（10 个小圆点） =====
+  function createTenGroup(goldCount, blueCount, extras) {
+    extras = extras || {};
     const total = goldCount + blueCount;
+    const startX = TENS_CX - (10 * TEN_DOT_SPACING) / 2 + TEN_DOT_SPACING / 2;
+    const cy = extras.cy;
+    const cls = 'ten-group' + (extras.popIn ? ' svg-pop-in' : '') +
+                (extras.glow ? ' svg-glow' : '');
+    const g = svgEl('g', { class: cls });
+    if (extras.popInDelay) {
+      g.style.animationDelay = extras.popInDelay + 's';
+    }
     for (let i = 0; i < 10; i++) {
-      const dot = document.createElement('div');
-      dot.className = 'ten-dot';
+      let fill = 'transparent';
       if (i < goldCount) {
-        dot.classList.add('src-a');
+        fill = 'url(#goldGrad)';
       } else if (i < total) {
-        dot.classList.add('src-b');
+        fill = 'url(#blueGrad)';
       } else {
-        dot.style.visibility = 'hidden'; // empty slot
+        // 空槽位：画一个淡色描边的虚位
+        fill = 'rgba(255,255,255,0.05)';
       }
-      group.appendChild(dot);
+      const circle = svgEl('circle', {
+        cx: startX + i * TEN_DOT_SPACING,
+        cy: cy,
+        r: TEN_DOT_R,
+        fill: fill,
+        stroke: fill === 'rgba(255,255,255,0.05)' ? 'rgba(255,255,255,0.15)' : 'none',
+        'stroke-width': fill === 'rgba(255,255,255,0.05)' ? 1 : 0,
+      });
+      g.appendChild(circle);
     }
-    return group;
+    return g;
   }
 
-  // ===== Render Step 1 =====
+  // ===== 计算一排个位圆点的中心 x 偏移 =====
+  function rowXOffsets(count, cx) {
+    const totalW = (count - 1) * ONE_DOT_SPACING;
+    const startX = cx - totalW / 2;
+    return Array.from({ length: count }, (_, i) => startX + i * ONE_DOT_SPACING);
+  }
+
+  // ===== 渲染：步骤 1 =====
   function renderStep1() {
-    // Tens column: 10 small circles per ten
+    // Tens column
     const tensEl = document.getElementById('s1-tens');
-    tensEl.innerHTML = '';
-    for (let i = 0; i < aTens; i++) {
-      const tg = createTenGroup(10, 0, 'pop-in');
-      tg.style.animationDelay = (i * 0.1) + 's';
-      tensEl.appendChild(tg);
-    }
+    clearGroup(tensEl);
     if (aTens === 0) {
-      tensEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.8rem;">（没有十位）</span>';
+      tensEl.appendChild(svgEl('text', {
+        x: TENS_CX, y: 180, 'text-anchor': 'middle',
+        fill: 'rgba(255,255,255,0.5)', 'font-size': 14,
+      })).textContent = '（没有十位）';
+    } else {
+      for (let i = 0; i < aTens; i++) {
+        tensEl.appendChild(createTenGroup(10, 0, {
+          cy: TEN_GROUP_Y0 + i * TEN_GROUP_GAP,
+          popIn: true,
+          popInDelay: i * 0.1,
+        }));
+      }
     }
 
-    // A ones (gold)
+    // A's ones (gold)
     const aOnesEl = document.getElementById('s1-a-ones');
-    aOnesEl.innerHTML = '';
-    for (let i = 0; i < aOnes; i++) {
-      const dot = createOneDot(i + 1, 'a-type', 'pop-in');
-      dot.style.animationDelay = (i * 0.06) + 's';
-      aOnesEl.appendChild(dot);
-    }
-    document.getElementById('s1-a-label').textContent = `${a} = ${aTens > 0 ? '1个十 + ' : ''}${aOnes}个一`;
+    clearGroup(aOnesEl);
+    const aXs = rowXOffsets(aOnes, ONES_CX);
+    aXs.forEach((x, i) => {
+      aOnesEl.appendChild(createOneDot(i + 1, 'a', {
+        cx: x, cy: ROW_A_Y,
+        popIn: true,
+        popInDelay: i * 0.06,
+      }));
+    });
 
-    // B ones (blue)
+    // A label
+    const aLabelEl = document.getElementById('s1-a-label-row');
+    clearGroup(aLabelEl);
+    aLabelEl.appendChild(svgEl('text', {
+      x: ONES_CX, y: ROW_A_Y + 38,
+      'text-anchor': 'middle',
+      fill: 'rgba(255,255,255,0.5)', 'font-size': 12,
+    })).textContent = `${a} = ${aTens > 0 ? '1个十 + ' : ''}${aOnes}个一`;
+
+    // B's ones (blue)
     const bOnesEl = document.getElementById('s1-b-ones');
-    bOnesEl.innerHTML = '';
-    for (let i = 0; i < b; i++) {
-      const dot = createOneDot(i + 1, 'b-type', 'pop-in');
-      dot.style.animationDelay = (i * 0.06 + 0.25) + 's';
-      bOnesEl.appendChild(dot);
-    }
-    document.getElementById('s1-b-label').textContent = `${b} = ${b}个一`;
+    clearGroup(bOnesEl);
+    const bXs = rowXOffsets(b, ONES_CX);
+    bXs.forEach((x, i) => {
+      bOnesEl.appendChild(createOneDot(i + 1, 'b', {
+        cx: x, cy: ROW_B_Y,
+        popIn: true,
+        popInDelay: i * 0.06 + 0.25,
+      }));
+    });
 
-    document.getElementById('s1-desc').textContent =
-      `✨ ${a} 和 ${b}，我们一起看看它们各有几个十和几个一！`;
+    // B label
+    const bLabelEl = document.getElementById('s1-b-label-row');
+    clearGroup(bLabelEl);
+    bLabelEl.appendChild(svgEl('text', {
+      x: ONES_CX, y: ROW_B_Y + 38,
+      'text-anchor': 'middle',
+      fill: 'rgba(255,255,255,0.5)', 'font-size': 12,
+    })).textContent = `${b} = ${b}个一`;
+
+    stepDescEl.textContent = `✨ ${a} 和 ${b}，我们一起看看它们各有几个十和几个一！`;
   }
 
-  // ===== Render Step 2 =====
+  // ===== 渲染：步骤 2 =====
   function renderStep2() {
     const tensEl = document.getElementById('s2-tens');
-    tensEl.innerHTML = '';
-    for (let i = 0; i < aTens; i++) {
-      tensEl.appendChild(createTenGroup(10, 0));
-    }
+    clearGroup(tensEl);
     if (aTens === 0) {
-      tensEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.8rem;">（没有十位）</span>';
+      tensEl.appendChild(svgEl('text', {
+        x: TENS_CX, y: 180, 'text-anchor': 'middle',
+        fill: 'rgba(255,255,255,0.5)', 'font-size': 14,
+      })).textContent = '（没有十位）';
+    } else {
+      for (let i = 0; i < aTens; i++) {
+        tensEl.appendChild(createTenGroup(10, 0, {
+          cy: TEN_GROUP_Y0 + i * TEN_GROUP_GAP,
+        }));
+      }
     }
 
-    // A ones — all blink (they all need friends)
+    // A's ones: all blinking (they all need friends)
     const aOnesEl = document.getElementById('s2-a-ones');
-    aOnesEl.innerHTML = '';
-    for (let i = 0; i < aOnes; i++) {
-      const dot = createOneDot(i + 1, 'a-type', 'blinking');
-      dot.style.animationDelay = (i * 0.05) + 's';
-      aOnesEl.appendChild(dot);
-    }
+    clearGroup(aOnesEl);
+    const aXs = rowXOffsets(aOnes, ONES_CX);
+    aXs.forEach((x, i) => {
+      aOnesEl.appendChild(createOneDot(i + 1, 'a', {
+        cx: x, cy: ROW_A_Y,
+        blink: true,
+        blinkDelay: i * 0.05,
+      }));
+    });
 
-    // B ones: friends blink, rest dim
+    // B's ones: friends blink, rest dim
     const bOnesEl = document.getElementById('s2-b-ones');
-    bOnesEl.innerHTML = '';
-    for (let i = 0; i < b; i++) {
+    clearGroup(bOnesEl);
+    const bXs = rowXOffsets(b, ONES_CX);
+    bXs.forEach((x, i) => {
       const isFriend = i < splitFirst;
-      const cls = 'b-type' + (isFriend ? ' blinking' : ' dim');
-      const dot = createOneDot(i + 1, 'b-type', cls);
-      dot.style.animationDelay = (i * 0.05) + 's';
-      bOnesEl.appendChild(dot);
-    }
+      bOnesEl.appendChild(createOneDot(i + 1, 'b', {
+        cx: x, cy: ROW_B_Y,
+        blink: isFriend,
+        dim: !isFriend,
+        blinkDelay: i * 0.05,
+      }));
+    });
 
-    document.getElementById('s2-desc').textContent =
+    stepDescEl.textContent =
       `🔍 ${aOnes}需要好朋友${splitFirst}！` +
       ` ${b}要拆成${splitFirst}和${splitSecond}，` +
       `${splitFirst}会和${aOnes}做朋友，一起凑成10！`;
   }
 
-  // ===== Render Step 3 =====
+  // ===== 渲染：步骤 3 =====
   function renderStep3() {
     const tensEl = document.getElementById('s3-tens');
-    tensEl.innerHTML = '';
-    // Original ten(s) — all gold circles
+    clearGroup(tensEl);
     for (let i = 0; i < aTens; i++) {
-      tensEl.appendChild(createTenGroup(10, 0));
+      tensEl.appendChild(createTenGroup(10, 0, {
+        cy: TEN_GROUP_Y0 + i * TEN_GROUP_GAP,
+      }));
     }
     // New ten — mixed: aOnes gold + splitFirst blue
-    const newTg = createTenGroup(aOnes, splitFirst, 'pop-in');
-    newTg.style.animationDelay = '0.4s';
-    tensEl.appendChild(newTg);
+    tensEl.appendChild(createTenGroup(aOnes, splitFirst, {
+      cy: TEN_GROUP_Y0 + aTens * TEN_GROUP_GAP,
+      popIn: true,
+      popInDelay: 0.4,
+    }));
 
-    // Remaining ones (blue, not used for merge)
+    // Remaining ones
     const onesEl = document.getElementById('s3-ones');
-    onesEl.innerHTML = '';
+    clearGroup(onesEl);
+    const emptyEl = document.getElementById('s3-empty');
     if (splitSecond > 0) {
-      for (let i = 0; i < splitSecond; i++) {
-        const dot = createOneDot(i + 1, 'b-type', 'remain');
-        dot.style.animationDelay = (i * 0.06 + 0.6) + 's';
-        onesEl.appendChild(dot);
-      }
+      emptyEl.style.display = 'none';
+      const xs = rowXOffsets(splitSecond, ONES_CX);
+      xs.forEach((x, i) => {
+        onesEl.appendChild(createOneDot(i + 1, 'b', {
+          cx: x, cy: ROW_REMAIN_Y,
+          popIn: true,
+          popInDelay: i * 0.06 + 0.6,
+        }));
+      });
     } else {
-      onesEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.8rem;">（没有剩余个位）</span>';
+      emptyEl.style.display = '';
     }
 
-    document.getElementById('s3-desc').textContent =
+    stepDescEl.textContent =
       `🎯 ${aOnes} + ${splitFirst} = 10，凑成 1 个新十位！`;
   }
 
-  // ===== Render Step 4 =====
+  // ===== 渲染：步骤 4 =====
   function renderStep4() {
     const tensEl = document.getElementById('s4-tens');
-    tensEl.innerHTML = '';
+    clearGroup(tensEl);
     const totalTens = aTens + 1;
     for (let i = 0; i < totalTens; i++) {
       const isNew = i >= aTens;
-      const tg = createTenGroup(
+      tensEl.appendChild(createTenGroup(
         isNew ? aOnes : 10,
         isNew ? splitFirst : 0,
-        (isNew ? 'pop-in glow' : '')
-      );
-      tg.style.animationDelay = (i * 0.1) + 's';
-      tensEl.appendChild(tg);
+        {
+          cy: TEN_GROUP_Y0 + i * TEN_GROUP_GAP,
+          popIn: isNew,
+          glow: isNew,
+          popInDelay: i * 0.1,
+        }
+      ));
     }
 
-    // Remaining ones
     const onesEl = document.getElementById('s4-ones');
-    onesEl.innerHTML = '';
+    clearGroup(onesEl);
+    const emptyEl = document.getElementById('s4-empty');
     if (splitSecond > 0) {
-      for (let i = 0; i < splitSecond; i++) {
-        const dot = createOneDot(i + 1, 'b-type', 'pop-in');
-        dot.style.animationDelay = (i * 0.06 + 0.3) + 's';
-        onesEl.appendChild(dot);
-      }
+      emptyEl.style.display = 'none';
+      const xs = rowXOffsets(splitSecond, ONES_CX);
+      xs.forEach((x, i) => {
+        onesEl.appendChild(createOneDot(i + 1, 'b', {
+          cx: x, cy: ROW_REMAIN_Y,
+          popIn: true,
+          popInDelay: i * 0.06 + 0.3,
+        }));
+      });
     } else {
-      onesEl.innerHTML = '<span style="color:var(--text-dim);font-size:0.8rem;">（没有剩余个位）</span>';
+      emptyEl.style.display = '';
     }
 
-    const descEl = document.getElementById('s4-desc');
-    descEl.textContent = `✅ ${totalTens} 个十 + ${splitSecond} 个一 = ${answer}`;
+    stepDescEl.textContent = `✅ ${totalTens} 个十 + ${splitSecond} 个一 = ${answer}`;
 
-    const resultEl = document.getElementById('s4-result');
+    resultEl.style.display = '';
     if (userAnswer !== null) {
       if (isCorrect) {
         resultEl.className = 'result-line correct';
@@ -797,104 +819,133 @@
     }
   }
 
-  // ===== Step 2 merge animation: circles fly from right to left =====
+  // ===== Step 2 合并动画：SVG 圆点飞入新十位 =====
   function doStep2Merge() {
     if (_step2Merged || isTransitioning) return;
     isTransitioning = true;
 
-    const friendDots = document.querySelectorAll('#step2 .one-dot.blinking');
-    if (friendDots.length === 0) {
+    // 收集 step 2 中所有 blinking 的圆点
+    const blinkingDots = stepGroups[2].querySelectorAll('.svg-blink');
+    if (blinkingDots.length === 0) {
       _step2Merged = true;
       isTransitioning = false;
       goToStep(3);
       return;
     }
 
-    // Hide originals
-    friendDots.forEach(dot => { dot.style.visibility = 'hidden'; });
-
-    // Update description
-    const mergeDesc = `🤝 ${aOnes}和${splitFirst}做好朋友，飞去十位凑成10！`;
-    document.getElementById('s2-desc').textContent = mergeDesc;
-    appendToDescLog(mergeDesc);
     btnNext.disabled = true;
+    const mergeDesc = `🤝 ${aOnes}和${splitFirst}做好朋友，飞去十位凑成10！`;
+    stepDescEl.textContent = mergeDesc;
+    appendToDescLog(mergeDesc);
 
-    // Get tens column container for target calculation
-    const tensCol = document.querySelector('#step2 .tens-col');
-    const tensColRect = tensCol.getBoundingClientRect();
+    // 隐藏原始 blinking 圆点
+    blinkingDots.forEach(g => { g.style.opacity = '0'; });
 
-    // Target Y: below existing ten-groups or below the column label
-    const existingGroups = tensCol.querySelectorAll('.ten-group');
-    let targetY;
-    if (existingGroups.length > 0) {
-      const last = existingGroups[existingGroups.length - 1];
-      targetY = last.getBoundingClientRect().bottom + 12;
-    } else {
-      const label = tensCol.querySelector('.col-label');
-      if (label) {
-        targetY = label.getBoundingClientRect().bottom + 14;
-      } else {
-        targetY = tensColRect.top + 60;
-      }
+    // 计算新十位组的目标位置
+    const newGroupY = TEN_GROUP_Y0 + aTens * TEN_GROUP_GAP;
+    const newGroupStartX = TENS_CX - (10 * TEN_DOT_SPACING) / 2 + TEN_DOT_SPACING / 2;
+    // 决定新十位组里 aOnes 个金色 + splitFirst 个蓝色的位置：
+    //   - 前 aOnes 个位置放金色（来自 a 的个位）
+    //   - 接下来 splitFirst 个位置放蓝色（来自 b 的朋友）
+    //   - 收集 blinkingDots 时按 a-ones(全 blink) + b-ones(前 splitFirst blink) 顺序
+    //   所以前 aOnes 个飞向新十位组的前 aOnes 个位置（变金色小点）
+    //   接下来 splitFirst 个飞向新十位组接下来的 splitFirst 个位置（变蓝色小点）
+
+    // 为了动画的视觉一致性，飞入的圆点尺寸与新十位组的十位小点一致
+    const targetR = TEN_DOT_R;
+
+    // 收集 blinkingDots 的源位置（屏幕坐标 → SVG 坐标需要变换）
+    const svgRect = document.getElementById('stage-svg').getBoundingClientRect();
+    const svgViewBox = document.getElementById('stage-svg').viewBox.baseVal;
+    const scaleX = svgRect.width / svgViewBox.width;
+    const scaleY = svgRect.height / svgViewBox.height;
+
+    function screenToSvg(screenX, screenY) {
+      return {
+        x: (screenX - svgRect.left) / scaleX,
+        y: (screenY - svgRect.top) / scaleY,
+      };
     }
 
-    // Target X: center the row of 10 dots in the tens column
-    const totalDots = friendDots.length;
-    const spacing = 23;           // center-to-center spacing after arrival
-    const assembledW = totalDots * spacing;
-    const startX = tensColRect.left + (tensColRect.width - assembledW) / 2 + spacing / 2;
-
-    // Create fixed-position clones at each dot's current position
-    const clones = [];
-    friendDots.forEach((dot, i) => {
-      const rect = dot.getBoundingClientRect();
-      const isGold = dot.classList.contains('a-type');
-      const valueText = dot.textContent;
-
-      const clone = document.createElement('div');
-      clone.className = 'one-dot ' + (isGold ? 'a-type' : 'b-type');
-      clone.textContent = valueText;
-      clone.style.cssText = `
-        position: fixed; left: ${rect.left}px; top: ${rect.top}px;
-        width: ${rect.width}px; height: ${rect.height}px; margin: 0;
-        z-index: 1000; pointer-events: none; border-radius: 50%;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 0.65rem; font-weight: 800; color: #1a1a2e;
-        transition: all ${1800 + i * 120}ms cubic-bezier(0.34, 1.56, 0.64, 1);
-      `;
-      document.body.appendChild(clone);
-      clones.push(clone);
+    const sources = [];
+    blinkingDots.forEach(g => {
+      const r = g.getBoundingClientRect();
+      const center = screenToSvg(r.left + r.width / 2, r.top + r.height / 2);
+      // 颜色：a 的圆点是金色，b 的圆点是蓝色
+      const isA = g.classList.contains('a-type');
+      sources.push({ x: center.x, y: center.y, isA: isA });
     });
 
-    // Trigger fly animation on next frame
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        clones.forEach((clone, i) => {
-          const tx = startX + i * spacing - 12;
-          clone.style.left = tx + 'px';
-          clone.style.top = targetY + 'px';
-          clone.style.width = '20px';
-          clone.style.height = '20px';
-          clone.style.fontSize = '0.5rem';
-        });
+    // 目标位置：按 [a 的 aOnes 个] + [b 的 splitFirst 个] 顺序填入新十位组
+    const targets = [];
+    for (let i = 0; i < aOnes; i++) {
+      targets.push({ x: newGroupStartX + i * TEN_DOT_SPACING, y: newGroupY, isA: true });
+    }
+    for (let i = 0; i < splitFirst; i++) {
+      targets.push({ x: newGroupStartX + (aOnes + i) * TEN_DOT_SPACING, y: newGroupY, isA: false });
+    }
+
+    // 创建飞行的圆点（使用 SMIL <animate> 动画 cx/cy/r）
+    const flyDuration = 1.2 / speed; // 秒
+    const stagger = 0.08 / speed;    // 错位延迟
+    sources.forEach((src, i) => {
+      if (i >= targets.length) return;
+      const tgt = targets[i];
+      const c = svgEl('circle', {
+        cx: src.x, cy: src.y, r: ONE_DOT_R,
+        fill: src.isA ? 'url(#goldGrad)' : 'url(#blueGrad)',
+        opacity: 0.95,
+        filter: 'url(#greenGlow)',
       });
+      // SMIL animate
+      const aX = svgEl('animate', {
+        attributeName: 'cx',
+        dur: flyDuration + 's',
+        begin: (i * stagger) + 's',
+        fill: 'freeze',
+        calcMode: 'spline',
+        keySplines: '0.4 0 0.2 1',
+        keyTimes: '0;1',
+        values: src.x + ';' + tgt.x,
+      });
+      const aY = svgEl('animate', {
+        attributeName: 'cy',
+        dur: flyDuration + 's',
+        begin: (i * stagger) + 's',
+        fill: 'freeze',
+        calcMode: 'spline',
+        keySplines: '0.4 0 0.2 1',
+        keyTimes: '0;1',
+        values: src.y + ';' + tgt.y,
+      });
+      const aR = svgEl('animate', {
+        attributeName: 'r',
+        dur: flyDuration + 's',
+        begin: (i * stagger) + 's',
+        fill: 'freeze',
+        values: ONE_DOT_R + ';' + targetR,
+      });
+      c.appendChild(aX);
+      c.appendChild(aY);
+      c.appendChild(aR);
+      flyLayer.appendChild(c);
     });
 
-    // Clean up after all animations finish
-    const maxDur = 1800 + (clones.length - 1) * 120 + 500;
+    // 飞行结束后清理并进入 step 3
+    const totalFly = flyDuration + (sources.length - 1) * stagger + 0.2;
     setTimeout(() => {
-      clones.forEach(c => c.remove());
+      // 清除飞行的圆点
+      while (flyLayer.firstChild) flyLayer.removeChild(flyLayer.firstChild);
       _step2Merged = true;
       isTransitioning = false;
       btnNext.disabled = false;
-      // Auto-advance to step 3 (auto-play or after merge)
       if (currentStep === 2 && _step2Merged) {
         goToStep(3);
       }
-    }, maxDur);
+    }, totalFly * 1000);
   }
 
-  // ===== Switch step =====
+  // ===== 切换步骤 =====
   function goToStep(step) {
     if (isTransitioning || step < 1 || step > 4) return;
     if (step === currentStep) return;
@@ -912,27 +963,30 @@
     stage.classList.add('fade-out');
 
     setTimeout(() => {
-      Object.values(stepEls).forEach(el => el.classList.remove('active'));
+      // 隐藏所有步骤组
+      Object.values(stepGroups).forEach(g => g.classList.remove('active'));
+      // 隐藏结果行（除 step 4）
+      resultEl.style.display = 'none';
 
+      // 渲染目标步骤
       switch (step) {
         case 1: renderStep1(); break;
         case 2: renderStep2(); _step2Merged = false; break;
         case 3: renderStep3(); break;
         case 4: renderStep4(); break;
       }
+      stepGroups[step].classList.add('active');
 
-      stepEls[step].classList.add('active');
-
-      // 前进时记录描述文字
+      // 前进时记录描述
       if (step > prevStep) {
-        const desc = document.querySelector('.step-content.active .step-desc');
-        if (desc) appendToDescLog(desc.textContent);
-        // 步骤4额外记录结果
+        if (stepDescEl.textContent) {
+          appendToDescLog(stepDescEl.textContent);
+        }
         if (step === 4) {
-          const result = document.getElementById('s4-result');
-          if (result) appendToDescLog(result.textContent.replace(/<[^>]*>/g, ''));
+          appendToDescLog(resultEl.textContent.replace(/<[^>]*>/g, ''));
         }
       }
+
       stage.classList.remove('fade-out');
       stage.classList.add('fade-in');
 
@@ -971,7 +1025,6 @@
     }
     scheduleNextAuto();
   }
-
   function scheduleNextAuto() {
     if (!isAutoPlaying) return;
     const delay = Math.round(3800 / speed);
@@ -984,20 +1037,15 @@
       }
     }, delay);
   }
-
   function stopAutoPlay() {
     isAutoPlaying = false;
     if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
     btnAuto.textContent = '▶ 自动播放';
     btnAuto.className = 'primary';
   }
-
   function toggleAutoPlay() {
-    if (isAutoPlaying) {
-      stopAutoPlay();
-    } else {
-      startAutoPlay();
-    }
+    if (isAutoPlaying) stopAutoPlay();
+    else startAutoPlay();
   }
 
   // ===== Speed =====
@@ -1015,11 +1063,9 @@
     }
   }
 
-  // ===== Return button =====
+  // ===== Return =====
   btnReturn.addEventListener('click', () => {
-    // 页面由 window.open 打开，close() 可正常关闭该标签页回到主应用
     window.close();
-    // 若 close() 无效（如用户直接打开此页面），等片刻后导航回主应用
     setTimeout(() => { window.location.href = '/'; }, 500);
   });
 
@@ -1028,12 +1074,10 @@
     if (isAutoPlaying) stopAutoPlay();
     if (currentStep < 4) goToStep(currentStep + 1);
   });
-
   btnPrev.addEventListener('click', () => {
     if (isAutoPlaying) stopAutoPlay();
     if (currentStep > 1) goToStep(currentStep - 1);
   });
-
   btnAuto.addEventListener('click', toggleAutoPlay);
   btnReplay.addEventListener('click', resetToStep1);
 
@@ -1048,7 +1092,7 @@
 
   // Keyboard shortcuts
   document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT') return; // ignore when adjusting slider
+    if (e.target.tagName === 'INPUT') return;
     if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       btnNext.click();
@@ -1071,11 +1115,11 @@
   // ===== Init =====
   function init() {
     renderStep1();
-    stepEls[1].classList.add('active');
+    stepGroups[1].classList.add('active');
     dotEls[0].classList.add('active');
     stepText.textContent = '1/4';
 
-    // 自动播放：页面加载1秒后开始
+    // 页面加载 1 秒后开始自动播放
     setTimeout(() => { startAutoPlay(); }, 1000);
   }
 
