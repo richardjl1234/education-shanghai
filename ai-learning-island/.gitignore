@@ -2,3 +2,7 @@
 __pycache__/
 *.pyc
 backend/tts_cache/
+
+# start.sh runtime artifacts
+.backend.pid
+backend.log
