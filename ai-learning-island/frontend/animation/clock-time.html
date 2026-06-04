@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>认识钟表 · 凑十法动画（SVG 版）</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #1a1a2e;
+    --purple: #6c63ff;
+    --purple-dark: #4a42c8;
+    --gold: #ffd700;
+    --gold-dark: #b8860b;
+    --gold-light: #ffe44d;
+    --blue: #64b5f6;
+    --green: #4caf50;
+    --red: #ff5252;
+    --text: #f0f0f0;
+    --text-dim: rgba(255,255,255,0.5);
+    --card-bg: rgba(255,255,255,0.08);
+    --border: rgba(255,255,255,0.15);
+    --shadow: 0 8px 32px rgba(0,0,0,0.3);
+
+    --speed: 1;
+    --transition-ms: calc(800ms / var(--speed));
+  }
+
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    user-select: none;
+    padding-bottom: 24px;
+  }
+
+  h1 {
+    font-size: 2rem;
+    text-align: center;
+    padding: 20px 0 4px;
+    background: linear-gradient(135deg, var(--gold), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 4px;
+  }
+  .subtitle {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 12px;
+  }
+
+  /* ===== Stage ===== */
+  .stage {
+    position: relative;
+    width: 800px;
+    max-width: 95vw;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 20px 20px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+
+  .clock-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .clock-svg {
+    display: block;
+    width: 400px;
+    max-width: 80vw;
+    height: auto;
+    /* 高 DPI 屏清晰 */
+    shape-rendering: geometricPrecision;
+  }
+
+  /* ===== Hands 旋转动画 ===== */
+  .hand {
+    transform-box: view-box;
+    transform-origin: 200px 200px;
+    transition: transform var(--transition-ms) cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* ===== Option buttons ===== */
+  .options-label {
+    text-align: center;
+    font-size: 1.1rem;
+    color: var(--text);
+    margin: 12px 0 10px;
+    font-weight: 700;
+  }
+  .options-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .opt-btn {
+    font-size: 1.4rem;
+    font-weight: 800;
+    padding: 14px 0;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-family: 'Courier New', monospace;
+    letter-spacing: 1px;
+  }
+  .opt-btn:hover {
+    background: rgba(255,255,255,0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .opt-btn:disabled { cursor: not-allowed; transform: none; }
+  .opt-btn.correct {
+    background: var(--green);
+    border-color: var(--green);
+    color: #fff;
+    animation: correctPulse 0.5s ease;
+  }
+  .opt-btn.wrong {
+    background: var(--red);
+    border-color: var(--red);
+    color: #fff;
+    animation: wrongShake 0.5s ease;
+  }
+  .opt-btn.dim { opacity: 0.4; }
+
+  @keyframes correctPulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+  @keyframes wrongShake {
+    0%, 100%      { transform: translateX(0); }
+    20%, 60%      { transform: translateX(-6px); }
+    40%, 80%      { transform: translateX(6px); }
+  }
+
+  /* ===== Feedback ===== */
+  .feedback {
+    text-align: center;
+    margin-top: 14px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    min-height: 2rem;
+    padding: 10px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.04);
+    transition: all 0.3s ease;
+  }
+  .feedback.correct { color: var(--green); background: rgba(76,175,80,0.15); }
+  .feedback.wrong   { color: var(--red);   background: rgba(255,82,82,0.15); }
+  .feedback.hint    { color: var(--gold);  background: rgba(255,215,0,0.10); }
+  .feedback .big-answer {
+    font-size: 1.6rem;
+    font-weight: 900;
+    display: inline-block;
+    margin: 0 4px;
+  }
+
+  /* ===== Controls ===== */
+  .controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+  }
+  .controls button {
+    font-size: 0.95rem;
+    font-weight: 700;
+    padding: 8px 18px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    background: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+  }
+  .controls button:hover {
+    background: rgba(255,255,255,0.15);
+    transform: scale(1.05);
+  }
+  .controls button:active { transform: scale(0.95); }
+  .controls button:disabled { opacity: 0.3; cursor: not-allowed; transform: none; }
+  .controls button.primary {
+    background: var(--purple);
+    border-color: var(--gold);
+  }
+  .controls button.primary:hover { background: var(--purple-dark); }
+  .controls button.return-btn {
+    background: rgba(255,255,255,0.06);
+    border-color: var(--text-dim);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+  .controls button.return-btn:hover {
+    background: rgba(255,255,255,0.15);
+    color: var(--text);
+  }
+
+  /* ===== Speed control ===== */
+  .speed-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .speed-section label { font-size: 0.9rem; color: var(--text-dim); }
+  .speed-section input[type="range"] {
+    width: 120px;
+    accent-color: var(--purple);
+    cursor: pointer;
+  }
+  #speed-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--gold);
+    min-width: 30px;
+    text-align: center;
+  }
+  .speed-btn-group { display: flex; gap: 4px; }
+  .speed-btn {
+    font-size: 0.75rem !important;
+    padding: 3px 12px !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--border) !important;
+  }
+  .speed-btn.active {
+    background: var(--purple) !important;
+    border-color: var(--gold) !important;
+  }
+
+  /* ===== Legend ===== */
+  .legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-top: 4px;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 50%; }
+  .legend-dot.hand-hour { background: #1a1a1a; }
+  .legend-dot.hand-minute { background: #555; border: 1px solid #999; }
+
+  @media (max-width: 600px) {
+    h1 { font-size: 1.3rem; }
+    .stage { padding: 12px 10px; }
+    .opt-btn { font-size: 1.1rem; padding: 10px 0; }
+    .options-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<h1>🕐 认识钟表</h1>
+<div class="subtitle" id="subtitle">时针 · 分针 · 整点/半点/5分钟倍数</div>
+
+<div class="legend">
+  <div class="legend-item"><span class="legend-dot hand-hour"></span> 时针（短粗）</div>
+  <div class="legend-item"><span class="legend-dot hand-minute"></span> 分针（长细）</div>
+</div>
+
+<div class="stage">
+  <div class="clock-wrap">
+    <svg viewBox="0 0 400 400" class="clock-svg" id="clock-svg" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <!-- 外圈：深木色渐变 -->
+        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#6d4c41"/>
+          <stop offset="50%"  stop-color="#3e2723"/>
+          <stop offset="100%" stop-color="#6d4c41"/>
+        </linearGradient>
+        <!-- 内圈：金属渐变 -->
+        <linearGradient id="bezelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%"   stop-color="#d4af37"/>
+          <stop offset="50%"  stop-color="#8d6e63"/>
+          <stop offset="100%" stop-color="#5d4037"/>
+        </linearGradient>
+        <!-- 表盘：米白径向渐变 -->
+        <radialGradient id="faceGrad" cx="50%" cy="40%" r="60%">
+          <stop offset="0%"   stop-color="#fffdf5"/>
+          <stop offset="70%"  stop-color="#f5efdc"/>
+          <stop offset="100%" stop-color="#e0d4a8"/>
+        </radialGradient>
+        <!-- 表盘阴影 -->
+        <filter id="faceShadow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="4"/>
+          <feOffset dx="0" dy="3" result="off"/>
+          <feComponentTransfer><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <!-- 指针阴影 -->
+        <filter id="handShadow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceAlpha" stdDeviation="1.5"/>
+          <feOffset dx="2" dy="3" result="off"/>
+          <feComponentTransfer><feFuncA type="linear" slope="0.5"/></feComponentTransfer>
+          <feMerge>
+            <feMergeNode/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+
+      <!-- 1. 外圈深木 -->
+      <circle cx="200" cy="200" r="196" fill="url(#ringGrad)"/>
+      <circle cx="200" cy="200" r="196" fill="none" stroke="#1a0f0a" stroke-width="2"/>
+
+      <!-- 2. 金属边圈 -->
+      <circle cx="200" cy="200" r="184" fill="url(#bezelGrad)"/>
+      <circle cx="200" cy="200" r="184" fill="none" stroke="#2c1b18" stroke-width="1"/>
+
+      <!-- 3. 表盘 -->
+      <circle cx="200" cy="200" r="172" fill="url(#faceGrad)" filter="url(#faceShadow)"/>
+
+      <!-- 4. 装饰内圈 -->
+      <circle cx="200" cy="200" r="165" fill="none" stroke="#8d6e63" stroke-width="0.5" opacity="0.4"/>
+      <circle cx="200" cy="200" r="155" fill="none" stroke="#8d6e63" stroke-width="0.3" opacity="0.3"/>
+
+      <!-- 5. 60 刻度（由 JS 填充） -->
+      <g id="ticks"></g>
+
+      <!-- 6. 12 数字（由 JS 填充） -->
+      <g id="numbers"></g>
+
+      <!-- 7. 品牌文字 -->
+      <text x="200" y="95" text-anchor="middle" font-size="11" font-family="Georgia, serif" font-weight="700" fill="#5d4037" letter-spacing="2">AI 学习岛</text>
+      <text x="200" y="320" text-anchor="middle" font-size="9" font-family="Georgia, serif" font-style="italic" fill="#8d6e63" letter-spacing="3">QUARTZ</text>
+
+      <!-- 8. 时针（短粗） -->
+      <g class="hand" id="hour-hand" style="transform: rotate(0deg);">
+        <!-- 后配重 -->
+        <rect x="197" y="200" width="6" height="22" rx="2" fill="#1a1a1a"/>
+        <!-- 主体：菱形/剑形 -->
+        <path d="M 196 215 L 200 100 L 204 215 Z" fill="#1a1a1a" filter="url(#handShadow)"/>
+      </g>
+
+      <!-- 9. 分针（长细） -->
+      <g class="hand" id="minute-hand" style="transform: rotate(0deg);">
+        <rect x="198.5" y="200" width="3" height="30" rx="1.5" fill="#1a1a1a"/>
+        <path d="M 198.5 225 L 200 60 L 201.5 225 Z" fill="#1a1a1a" filter="url(#handShadow)"/>
+      </g>
+
+      <!-- 10. 中心轴帽 -->
+      <circle cx="200" cy="200" r="9" fill="#1a1a1a"/>
+      <circle cx="200" cy="200" r="5" fill="url(#bezelGrad)"/>
+      <circle cx="200" cy="200" r="2" fill="#1a1a1a"/>
+    </svg>
+  </div>
+
+  <div class="options-label">请选出正确的时间：</div>
+  <div class="options-grid" id="options-grid"></div>
+
+  <div class="feedback" id="feedback">⏰ 看看钟表上的指针，选一个时间吧~</div>
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button id="btn-return" class="return-btn" title="返回主应用">↩ 返回</button>
+  <button id="btn-replay">↻ 重玩</button>
+  <button id="btn-demo" class="primary">▶ 自动演示</button>
+  <button id="btn-next" class="primary">🎲 下一题</button>
+</div>
+
+<!-- Speed -->
+<div class="speed-section">
+  <label>🎬 速度</label>
+  <input type="range" id="speed-slider" min="0.25" max="2.5" step="0.25" value="1">
+  <span id="speed-label">1x</span>
+  <div class="speed-btn-group">
+    <button class="speed-btn" data-speed="0.5">🐢 慢</button>
+    <button class="speed-btn active" data-speed="1">🐰 正常</button>
+    <button class="speed-btn" data-speed="2">🐆 快</button>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ===== 几何 =====
+  const CX = 200, CY = 200;
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS(SVG_NS, tag);
+    if (attrs) for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  // ===== 静态元素：刻度与数字 =====
+  function buildStaticClockElements() {
+    const ticksEl = document.getElementById('ticks');
+    const numbersEl = document.getElementById('numbers');
+
+    // 60 刻度
+    for (let i = 0; i < 60; i++) {
+      const angle = i * 6;  // 0, 6, 12, ...
+      const isMajor = (i % 5 === 0);
+      const innerR = isMajor ? 152 : 158;
+      const outerR = 165;
+      // 刻度从 12 方向（角度 0）开始顺时针
+      const rad = (angle - 90) * Math.PI / 180;  // 减 90 让 0° 在 12 点
+      const x1 = CX + innerR * Math.cos(rad);
+      const y1 = CY + innerR * Math.sin(rad);
+      const x2 = CX + outerR * Math.cos(rad);
+      const y2 = CY + outerR * Math.sin(rad);
+      const line = svgEl('line', {
+        x1: x1, y1: y1, x2: x2, y2: y2,
+        stroke: isMajor ? '#3e2723' : '#8d6e63',
+        'stroke-width': isMajor ? 2.5 : 0.8,
+        'stroke-linecap': 'round',
+      });
+      ticksEl.appendChild(line);
+    }
+
+    // 12 数字
+    for (let h = 1; h <= 12; h++) {
+      const angle = h * 30;
+      const rad = (angle - 90) * Math.PI / 180;
+      const r = 138;
+      const x = CX + r * Math.cos(rad);
+      const y = CY + r * Math.sin(rad) + 7;  // 文字垂直居中
+      const isCardinal = (h % 3 === 0);  // 3, 6, 9, 12 加粗
+      const text = svgEl('text', {
+        x: x, y: y,
+        'text-anchor': 'middle',
+        'font-size': isCardinal ? 26 : 22,
+        'font-family': 'Georgia, "Times New Roman", serif',
+        'font-weight': isCardinal ? '900' : '700',
+        fill: '#2c1b18',
+      });
+      text.textContent = h;
+      numbersEl.appendChild(text);
+    }
+  }
+
+  // ===== 计算指针角度 =====
+  function hourAngle(h, m) {
+    return h * 30 + m * 0.5;
+  }
+  function minuteAngle(m) {
+    return m * 6;
+  }
+
+  // ===== 设置指针 =====
+  function setHands(h, m, animated) {
+    const hourHand = document.getElementById('hour-hand');
+    const minuteHand = document.getElementById('minute-hand');
+    if (animated) {
+      hourHand.style.transition = `transform var(--transition-ms) cubic-bezier(0.4, 0, 0.2, 1)`;
+      minuteHand.style.transition = `transform var(--transition-ms) cubic-bezier(0.4, 0, 0.2, 1)`;
+    } else {
+      hourHand.style.transition = 'none';
+      minuteHand.style.transition = 'none';
+    }
+    hourHand.style.transform = `rotate(${hourAngle(h, m)}deg)`;
+    minuteHand.style.transform = `rotate(${minuteAngle(m)}deg)`;
+  }
+
+  // ===== 解析 URL 参数 =====
+  const params = new URLSearchParams(window.location.search);
+  const urlHour = parseInt(params.get('h'), 10);
+  const urlMin = parseInt(params.get('m'), 10);
+  const urlAnswer = params.get('answer');
+  const urlOpts = params.get('opts');
+
+  let currentHour = !isNaN(urlHour) && urlHour >= 1 && urlHour <= 12 ? urlHour : 3;
+  let currentMin  = !isNaN(urlMin)  && urlMin  >= 0 && urlMin  < 60 ? urlMin  : 0;
+  let currentAnswer = urlAnswer || `${currentHour}:${String(currentMin).padStart(2, '0')}`;
+  let currentOptions = urlOpts ? urlOpts.split('|').filter(Boolean) : [];
+
+  // ===== State =====
+  let speed = 1;
+  let answered = false;
+  let _autoDemoTimer = null;
+
+  // ===== 渲染选项按钮 =====
+  function renderOptions() {
+    const grid = document.getElementById('options-grid');
+    grid.innerHTML = '';
+    // 没有 URL opts 时自动生成 3 个干扰项
+    if (currentOptions.length === 0 || !currentOptions.includes(currentAnswer)) {
+      const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+      const cands = [];
+      for (const delta of [-10, -5, 5, 10]) {
+        const nm = currentMin + delta;
+        if (MINUTES.includes(nm)) cands.push(`${currentHour}:${String(nm).padStart(2, '0')}`);
+      }
+      for (const m of MINUTES) {
+        const t = `${currentHour}:${String(m).padStart(2, '0')}`;
+        if (t !== currentAnswer && !cands.includes(t)) cands.push(t);
+      }
+      const distractors = cands.slice(0, 3);
+      currentOptions = [...distractors, currentAnswer];
+    }
+    // 随机排序展示
+    const shuffled = [...currentOptions].sort(() => Math.random() - 0.5);
+    shuffled.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'opt-btn';
+      btn.textContent = opt;
+      btn.dataset.value = opt;
+      btn.addEventListener('click', () => onAnswer(opt, btn));
+      grid.appendChild(btn);
+    });
+  }
+
+  // ===== 答题反馈 =====
+  function onAnswer(value, btn) {
+    if (answered) return;
+    answered = true;
+
+    // 禁用所有按钮
+    document.querySelectorAll('.opt-btn').forEach(b => b.disabled = true);
+
+    const feedback = document.getElementById('feedback');
+    if (value === currentAnswer) {
+      btn.classList.add('correct');
+      feedback.className = 'feedback correct';
+      feedback.innerHTML = `🎉 答对了！钟表显示的是 <span class="big-answer">${currentAnswer}</span>`;
+    } else {
+      btn.classList.add('wrong');
+      // 高亮正确选项
+      document.querySelectorAll('.opt-btn').forEach(b => {
+        if (b.dataset.value === currentAnswer) b.classList.add('correct');
+        else b.classList.add('dim');
+      });
+      feedback.className = 'feedback wrong';
+      feedback.innerHTML = `😅 正确答案是 <span class="big-answer">${currentAnswer}</span>` +
+        `（时针在 ${currentHour} 和 ${currentHour === 12 ? 1 : currentHour + 1} 之间，分针指 ${currentMin}）`;
+    }
+  }
+
+  // ===== 演示：让指针从 12:00 转到目标时间 =====
+  function playDemo() {
+    setHands(12, 0, false);  // 立即归零
+    // 强制重排后启动动画
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setHands(currentHour, currentMin, true);
+      });
+    });
+  }
+
+  // ===== 重新出题 =====
+  function generateNewProblem() {
+    const MINUTES_POOL = [0, 0, 0, 30, 30, 30, 5, 10, 15, 20, 25, 35, 40, 45, 50, 55];
+    currentHour = Math.floor(Math.random() * 12) + 1;
+    currentMin = MINUTES_POOL[Math.floor(Math.random() * MINUTES_POOL.length)];
+    currentAnswer = `${currentHour}:${String(currentMin).padStart(2, '0')}`;
+
+    // 重新生成选项
+    const MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55];
+    const cands = [];
+    for (const delta of [-10, -5, 5, 10]) {
+      const nm = currentMin + delta;
+      if (MINUTES.includes(nm)) cands.push(`${currentHour}:${String(nm).padStart(2, '0')}`);
+    }
+    for (const m of MINUTES) {
+      const t = `${currentHour}:${String(m).padStart(2, '0')}`;
+      if (t !== currentAnswer && !cands.includes(t)) cands.push(t);
+    }
+    const distractors = cands.slice(0, 3);
+    currentOptions = [...distractors, currentAnswer];
+
+    answered = false;
+    document.getElementById('feedback').className = 'feedback';
+    document.getElementById('feedback').textContent = '⏰ 看看钟表上的指针，选一个时间吧~';
+    renderOptions();
+    playDemo();
+  }
+
+  // ===== 重置当前题（重置反馈，重演指针） =====
+  function replay() {
+    answered = false;
+    document.getElementById('feedback').className = 'feedback';
+    document.getElementById('feedback').textContent = '⏰ 看看钟表上的指针，选一个时间吧~';
+    renderOptions();
+    playDemo();
+  }
+
+  // ===== Speed =====
+  function setSpeed(val) {
+    speed = val;
+    document.documentElement.style.setProperty('--speed', speed);
+    document.getElementById('speed-label').textContent = speed + 'x';
+    document.getElementById('speed-slider').value = speed;
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+      btn.classList.toggle('active', parseFloat(btn.dataset.speed) === speed);
+    });
+  }
+
+  // ===== Init =====
+  function init() {
+    buildStaticClockElements();
+    renderOptions();
+    playDemo();  // 加载时自动演示一次
+
+    document.getElementById('btn-return').addEventListener('click', () => {
+      window.close();
+      setTimeout(() => { window.location.href = '/'; }, 500);
+    });
+    document.getElementById('btn-replay').addEventListener('click', replay);
+    document.getElementById('btn-demo').addEventListener('click', playDemo);
+    document.getElementById('btn-next').addEventListener('click', generateNewProblem);
+    document.getElementById('speed-slider').addEventListener('input', e => {
+      setSpeed(parseFloat(e.target.value));
+    });
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+      btn.addEventListener('click', () => setSpeed(parseFloat(btn.dataset.speed)));
+    });
+
+    // 键盘快捷键
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT') return;
+      if (e.key === 'r' || e.key === 'R') replay();
+      if (e.key === 'd' || e.key === 'D') playDemo();
+      if (e.key === 'n' || e.key === 'N') generateNewProblem();
+      if (e.key === 'Escape') document.getElementById('btn-return').click();
+    });
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

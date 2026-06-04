@@ -175,9 +175,6 @@ STATIC_PROBLEMS = {
         {"q": "下面哪个是三角形？", "a": 1, "opts": ["△", "○", "□", "☆"]},
         {"q": "一个正方形有几条边？", "a": 4, "opts": [3, 4, 5, 6]},
     ],
-    "钟表": [
-        {"q": "整点的时候，分针指向几？", "a": 12, "opts": [6, 12, 1, 3]},
-    ],
     "破十法": [
         {"q": "15 - 8 = ? 用破十法怎么算？", "a": 7, "opts": [5, 6, 7, 8]},
         {"q": "13 - 6 = ?", "a": 7, "opts": [5, 6, 7, 8]},
@@ -191,6 +188,7 @@ DYNAMIC_GENERATORS = {
     "减法": lambda: _gen_sub(),
     "代数思维": lambda: _gen_algebra(),
     "凑十法": lambda: _gen_ten_complement(),
+    "钟表": lambda: _gen_clock_time(),
 }
 
 
@@ -295,6 +293,56 @@ def _gen_ten_complement():
         "split_first": split_first,
         "split_second": split_second,
         "steps": steps,
+        "animation_url": animation_url,
+    }
+
+
+def _gen_clock_time():
+    """生成认识钟表题目——动态生成时间（整点/半点/5分钟倍数），4 选 1"""
+    # 难度分布：30% 整点，30% 半点（30分），40% 5分钟倍数
+    difficulty = random.random()
+    if difficulty < 0.3:
+        hour = random.randint(1, 12)
+        minute = 0
+    elif difficulty < 0.6:
+        hour = random.randint(1, 12)
+        minute = 30
+    else:
+        hour = random.randint(1, 12)
+        minute = random.choice([5, 10, 15, 20, 25, 35, 40, 45, 50, 55])
+
+    answer = f"{hour}:{minute:02d}"
+
+    # 干扰项：优先同小时相邻 ±5/±10 分钟，再扩展
+    MINUTES = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
+    candidates = []
+    for delta in [-10, -5, 5, 10]:
+        new_m = minute + delta
+        if new_m in MINUTES:
+            candidates.append(f"{hour}:{new_m:02d}")
+    # 同小时其他分钟
+    for m in MINUTES:
+        t = f"{hour}:{m:02d}"
+        if t != answer and t not in candidates:
+            candidates.append(t)
+    # 移除正确答案并去重
+    candidates = list(dict.fromkeys(c for c in candidates if c != answer))
+
+    distractors = candidates[:3] if len(candidates) >= 3 else candidates
+    options = distractors + [answer]
+    random.shuffle(options)
+
+    # 动画 URL：带时间和选项（用 | 分隔避免与 URL 编码冲突）
+    opts_param = "|".join(options)
+    animation_url = f"/animation/clock-time.html?h={hour}&m={minute}&answer={answer}&opts={opts_param}"
+
+    return {
+        "q": "🕐 这个钟表显示的是几点几分？",
+        "a": answer,
+        "opts": options,
+        "topic": "钟表",
+        "hour": hour,
+        "minute": minute,
         "animation_url": animation_url,
     }
 

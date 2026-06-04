@@ -2,11 +2,11 @@
   "id": "clock_time",
   "name": "认识钟表",
   "icon": "🕐",
-  "description": "整点、半点",
-  "status": "planned",
+  "description": "认识时针分针 · 整点/半点/5分钟倍数",
+  "status": "ready",
   "grade": 1,
   "depends": ["number_sense"],
   "route": "sprout",
   "order": 6,
-  "entry": null
+  "entry": "/api/challenge/clock_time"
 }
