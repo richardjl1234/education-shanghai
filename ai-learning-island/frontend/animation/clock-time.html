@@ -22,9 +22,6 @@
     --card-bg: rgba(255,255,255,0.08);
     --border: rgba(255,255,255,0.15);
     --shadow: 0 8px 32px rgba(0,0,0,0.3);
-
-    --speed: 1;
-    --transition-ms: calc(800ms / var(--speed));
   }
 
   body {
@@ -84,11 +81,10 @@
     shape-rendering: geometricPrecision;
   }
 
-  /* ===== Hands 旋转动画 ===== */
+  /* ===== Hands 旋转中心 ===== */
   .hand {
     transform-box: view-box;
     transform-origin: 200px 200px;
-    transition: transform var(--transition-ms) cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   /* ===== Option buttons ===== */
@@ -215,40 +211,6 @@
     color: var(--text);
   }
 
-  /* ===== Speed control ===== */
-  .speed-section {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 10px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .speed-section label { font-size: 0.9rem; color: var(--text-dim); }
-  .speed-section input[type="range"] {
-    width: 120px;
-    accent-color: var(--purple);
-    cursor: pointer;
-  }
-  #speed-label {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--gold);
-    min-width: 30px;
-    text-align: center;
-  }
-  .speed-btn-group { display: flex; gap: 4px; }
-  .speed-btn {
-    font-size: 0.75rem !important;
-    padding: 3px 12px !important;
-    border-radius: 16px !important;
-    border: 1px solid var(--border) !important;
-  }
-  .speed-btn.active {
-    background: var(--purple) !important;
-    border-color: var(--gold) !important;
-  }
-
   /* ===== Legend ===== */
   .legend {
     display: flex;
@@ -351,18 +313,18 @@
       <text x="200" y="95" text-anchor="middle" font-size="11" font-family="Georgia, serif" font-weight="700" fill="#5d4037" letter-spacing="2">AI 学习岛</text>
       <text x="200" y="320" text-anchor="middle" font-size="9" font-family="Georgia, serif" font-style="italic" fill="#8d6e63" letter-spacing="3">QUARTZ</text>
 
-      <!-- 8. 时针（短粗） -->
+      <!-- 8. 时针（短粗，加粗：宽 14） -->
       <g class="hand" id="hour-hand" style="transform: rotate(0deg);">
         <!-- 后配重 -->
-        <rect x="197" y="200" width="6" height="22" rx="2" fill="#1a1a1a"/>
-        <!-- 主体：菱形/剑形 -->
-        <path d="M 196 215 L 200 100 L 204 215 Z" fill="#1a1a1a" filter="url(#handShadow)"/>
+        <rect x="194" y="200" width="12" height="22" rx="3" fill="#1a1a1a"/>
+        <!-- 主体：圆角矩形 -->
+        <rect x="193" y="98" width="14" height="120" rx="6" fill="#1a1a1a" filter="url(#handShadow)"/>
       </g>
 
-      <!-- 9. 分针（长细） -->
+      <!-- 9. 分针（长细，加粗：宽 10） -->
       <g class="hand" id="minute-hand" style="transform: rotate(0deg);">
-        <rect x="198.5" y="200" width="3" height="30" rx="1.5" fill="#1a1a1a"/>
-        <path d="M 198.5 225 L 200 60 L 201.5 225 Z" fill="#1a1a1a" filter="url(#handShadow)"/>
+        <rect x="197" y="200" width="6" height="26" rx="2" fill="#1a1a1a"/>
+        <rect x="195" y="55" width="10" height="170" rx="4" fill="#1a1a1a" filter="url(#handShadow)"/>
       </g>
 
       <!-- 10. 中心轴帽 -->
@@ -381,21 +343,8 @@
 <!-- Controls -->
 <div class="controls">
   <button id="btn-return" class="return-btn" title="返回主应用">↩ 返回</button>
-  <button id="btn-replay">↻ 重玩</button>
-  <button id="btn-demo" class="primary">▶ 自动演示</button>
+  <button id="btn-replay">↻ 重玩本题</button>
   <button id="btn-next" class="primary">🎲 下一题</button>
-</div>
-
-<!-- Speed -->
-<div class="speed-section">
-  <label>🎬 速度</label>
-  <input type="range" id="speed-slider" min="0.25" max="2.5" step="0.25" value="1">
-  <span id="speed-label">1x</span>
-  <div class="speed-btn-group">
-    <button class="speed-btn" data-speed="0.5">🐢 慢</button>
-    <button class="speed-btn active" data-speed="1">🐰 正常</button>
-    <button class="speed-btn" data-speed="2">🐆 快</button>
-  </div>
 </div>
 
 <script>
@@ -466,17 +415,10 @@
     return m * 6;
   }
 
-  // ===== 设置指针 =====
-  function setHands(h, m, animated) {
+  // ===== 设置指针（瞬时，无动画） =====
+  function setHands(h, m) {
     const hourHand = document.getElementById('hour-hand');
     const minuteHand = document.getElementById('minute-hand');
-    if (animated) {
-      hourHand.style.transition = `transform var(--transition-ms) cubic-bezier(0.4, 0, 0.2, 1)`;
-      minuteHand.style.transition = `transform var(--transition-ms) cubic-bezier(0.4, 0, 0.2, 1)`;
-    } else {
-      hourHand.style.transition = 'none';
-      minuteHand.style.transition = 'none';
-    }
     hourHand.style.transform = `rotate(${hourAngle(h, m)}deg)`;
     minuteHand.style.transform = `rotate(${minuteAngle(m)}deg)`;
   }
@@ -494,9 +436,7 @@
   let currentOptions = urlOpts ? urlOpts.split('|').filter(Boolean) : [];
 
   // ===== State =====
-  let speed = 1;
   let answered = false;
-  let _autoDemoTimer = null;
 
   // ===== 渲染选项按钮 =====
   function renderOptions() {
@@ -555,17 +495,6 @@
     }
   }
 
-  // ===== 演示：让指针从 12:00 转到目标时间 =====
-  function playDemo() {
-    setHands(12, 0, false);  // 立即归零
-    // 强制重排后启动动画
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        setHands(currentHour, currentMin, true);
-      });
-    });
-  }
-
   // ===== 重新出题 =====
   function generateNewProblem() {
     const MINUTES_POOL = [0, 0, 0, 30, 30, 30, 5, 10, 15, 20, 25, 35, 40, 45, 50, 55];
@@ -591,54 +520,34 @@
     document.getElementById('feedback').className = 'feedback';
     document.getElementById('feedback').textContent = '⏰ 看看钟表上的指针，选一个时间吧~';
     renderOptions();
-    playDemo();
+    setHands(currentHour, currentMin);
   }
 
-  // ===== 重置当前题（重置反馈，重演指针） =====
+  // ===== 重置当前题（重置反馈，指针位置不变） =====
   function replay() {
     answered = false;
     document.getElementById('feedback').className = 'feedback';
     document.getElementById('feedback').textContent = '⏰ 看看钟表上的指针，选一个时间吧~';
     renderOptions();
-    playDemo();
-  }
-
-  // ===== Speed =====
-  function setSpeed(val) {
-    speed = val;
-    document.documentElement.style.setProperty('--speed', speed);
-    document.getElementById('speed-label').textContent = speed + 'x';
-    document.getElementById('speed-slider').value = speed;
-    document.querySelectorAll('.speed-btn').forEach(btn => {
-      btn.classList.toggle('active', parseFloat(btn.dataset.speed) === speed);
-    });
   }
 
   // ===== Init =====
   function init() {
     buildStaticClockElements();
     renderOptions();
-    playDemo();  // 加载时自动演示一次
+    setHands(currentHour, currentMin);  // 加载时直接显示目标时间
 
     document.getElementById('btn-return').addEventListener('click', () => {
       window.close();
       setTimeout(() => { window.location.href = '/'; }, 500);
     });
     document.getElementById('btn-replay').addEventListener('click', replay);
-    document.getElementById('btn-demo').addEventListener('click', playDemo);
     document.getElementById('btn-next').addEventListener('click', generateNewProblem);
-    document.getElementById('speed-slider').addEventListener('input', e => {
-      setSpeed(parseFloat(e.target.value));
-    });
-    document.querySelectorAll('.speed-btn').forEach(btn => {
-      btn.addEventListener('click', () => setSpeed(parseFloat(btn.dataset.speed)));
-    });
 
     // 键盘快捷键
     document.addEventListener('keydown', e => {
       if (e.target.tagName === 'INPUT') return;
       if (e.key === 'r' || e.key === 'R') replay();
-      if (e.key === 'd' || e.key === 'D') playDemo();
       if (e.key === 'n' || e.key === 'N') generateNewProblem();
       if (e.key === 'Escape') document.getElementById('btn-return').click();
     });
